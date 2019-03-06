@@ -5,13 +5,13 @@ import java.util.List;
 
 public class Peer
 {
-    private List<PeerInfo> peerList;
-    private int peerId;
+    private final List<PeerInfo> peerList;
+    private final int peerId;
     private int serverPort;
     private int hasFile;
 
 
-    public Peer(int peerId, List<PeerInfo> peerList)
+    Peer(int peerId, List<PeerInfo> peerList)
     {
         this.peerId = peerId;
         this.peerList = peerList;
@@ -27,46 +27,49 @@ public class Peer
         }
     }
 
-    public void start()
+    void start()
     {
         Thread serverListener = new Thread(new ServerListener(serverPort, this));
         serverListener.start();
 
-        while (true)
-        {
-            // Make connection to other peer
-            for (PeerInfo target : peerList)
-            {
-                if (target.getPeerId() < peerId)
-                {
-                    Thread peerGet = new Thread(new PeerGet(this, target));
-                    peerGet.start();
-                }
-            }
 
-            // do something here
-            try
+        // Make connection to other peer
+        for (PeerInfo target : peerList)
+        {
+            if (target.getPeerId() < peerId)
             {
-                serverListener.join();
-            } catch (InterruptedException e)
-            {
-                e.printStackTrace();
+                Thread peerGet = new Thread(new PeerGet(this, target));
+                peerGet.start();
             }
+        }
+
+        // do something here
+        try
+        {
+            serverListener.join();
+        } catch (InterruptedException e)
+        {
+            e.printStackTrace();
         }
     }
 
-    public int getPeerId()
+    int getPeerId()
     {
         return peerId;
     }
 
-    public int getHasFile()
+    int getHasFile()
     {
         return hasFile;
     }
 
-    public void setHasFile(int hasFile)
+    void setHasFile(int hasFile)
     {
         this.hasFile = hasFile;
+    }
+
+    List<PeerInfo> getPeerList()
+    {
+        return peerList;
     }
 }

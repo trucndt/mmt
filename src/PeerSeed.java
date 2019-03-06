@@ -1,13 +1,16 @@
+import java.io.*;
 import java.net.Socket;
 
 public class PeerSeed implements Runnable
 {
-    protected final Socket connectionSocket;
-    protected final Peer thisPeer;
+    private final Socket socket;
+    private final Peer thisPeer;
 
-    public PeerSeed(Socket connectionSocket, Peer thisPeer)
+    private PeerInfo target;
+
+    PeerSeed(Socket connectionSocket, Peer thisPeer)
     {
-        this.connectionSocket = connectionSocket;
+        this.socket = connectionSocket;
         this.thisPeer = thisPeer;
     }
 
@@ -15,16 +18,69 @@ public class PeerSeed implements Runnable
     public void run()
     {
         /*
-        Receive handshake
+        Receive msg
          */
+        try
+        {
+            DataInputStream fromGet = new DataInputStream(new BufferedInputStream(socket.getInputStream()));
+            DataOutputStream toGet = new DataOutputStream(socket.getOutputStream());
 
-        /*
-        Send handshake
-         */
+            int targetId = receiveHandShake(fromGet);
+            if (targetId < 0) return;
+
+            for (PeerInfo p: thisPeer.getPeerList())
+            {
+                if (p.getPeerId() == targetId)
+                {
+                    target = p;
+                    break;
+                }
+            }
+
+            sendHandShake(toGet);
+
+
+            socket.close();
+        } catch (IOException e)
+        {
+            e.printStackTrace();
+        }
+
     }
 
-    private void sendHandShake()
+    private int receiveHandShake(DataInputStream fromGet) throws IOException
     {
+        byte[] buffer = new byte[32];
+        fromGet.readFully(buffer);
 
+        String rcvMsg = new String(buffer);
+        System.out.println("Receive msg " + rcvMsg);
+
+        /* check handshake message */
+        if (!rcvMsg.substring(0, 18).equals("P2PFILESHARINGPROJ"))
+        {
+            System.out.println("Wrong handshake");
+            return -1;
+        }
+
+        return Integer.parseInt(rcvMsg.substring(28, 32));
+
+    }
+
+    private void sendHandShake(DataOutputStream toGet)
+    {
+        /* send message */
+        try
+        {
+            String messageOut = "P2PFILESHARINGPROJ" + "0000000000" + thisPeer.getPeerId();
+
+            toGet.write(messageOut.getBytes());
+            toGet.flush();
+            System.out.println("Send Handshake Message: { " + messageOut + " } to Client " + target.getPeerId());
+        }
+        catch (IOException ioException)
+        {
+            ioException.printStackTrace();
+        }
     }
 }

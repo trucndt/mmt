@@ -4,11 +4,11 @@ import java.net.Socket;
 
 public class ServerListener implements Runnable
 {
-    protected ServerSocket welcomeSocket = null;
+    private ServerSocket welcomeSocket = null;
     private final Peer thisPeer;
     private final int serverPort;
 
-    public ServerListener(int port, Peer thisPeer)
+    ServerListener(int port, Peer thisPeer)
     {
         this.thisPeer = thisPeer;
         this.serverPort = port;
@@ -33,6 +33,7 @@ public class ServerListener implements Runnable
             while (true)
             {
                 Socket connectionSocket = welcomeSocket.accept();
+                System.out.println("new connection");
                 Thread serverThread = new Thread(new PeerSeed(connectionSocket, thisPeer));
                 serverThread.start();
             }
