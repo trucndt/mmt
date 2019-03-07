@@ -85,7 +85,7 @@ public class PeerGet implements Runnable
 
     private boolean receiveHandShake(DataInputStream fromSeed) throws IOException
     {
-        byte[] buffer = new byte[32];
+        byte[] buffer = new byte[Misc.HANDSHAKE_LENGTH];
         fromSeed.readFully(buffer);
 
         String rcvMsg = new String(buffer);

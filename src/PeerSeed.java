@@ -50,7 +50,7 @@ public class PeerSeed implements Runnable
 
     private int receiveHandShake(DataInputStream fromGet) throws IOException
     {
-        byte[] buffer = new byte[32];
+        byte[] buffer = new byte[Misc.HANDSHAKE_LENGTH];
         fromGet.readFully(buffer);
 
         String rcvMsg = new String(buffer);
