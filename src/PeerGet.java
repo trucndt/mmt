@@ -116,6 +116,9 @@ public class PeerGet implements Runnable
                 // TODO handle have
                 break;
 
+            case Misc.TYPE_UNCHOKE:
+                break;
+
             case Misc.TYPE_PIECE:
                 break;
 

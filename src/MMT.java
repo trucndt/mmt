@@ -37,13 +37,11 @@ public class MMT
         }
 
         readCommonCfg();
-        printCommonCfg();
+//        printCommonCfg();
         List<PeerInfo> peerList = readPeerCfg();
 
-        for (PeerInfo p : peerList)
-        {
-            p.printInfo();
-        }
+//        for (PeerInfo p : peerList)
+//            p.printInfo();
 
         Peer peer = new Peer(peerId, peerList);
         peer.start();
