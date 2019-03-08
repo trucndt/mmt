@@ -43,7 +43,16 @@ public class PeerSeed implements Runnable
                 new Thread(new PeerGet(thisPeer, target)).start();
             }
 
+            if (thisPeer.getHasFile() == 1)
+            {
+                //TODO send bitfield
 
+                //TODO wait for interested
+
+                //TODO if interested and prefered -> unchoke
+            }
+
+            //TODO wait for having new pieces
 
             socket.close();
         } catch (IOException e)
@@ -70,5 +79,19 @@ public class PeerSeed implements Runnable
 
         return Integer.parseInt(rcvMsg.substring(28, 32));
 
+    }
+
+    private void sendMessage(DataOutputStream outStream, int length, byte type, byte[] payload)
+    {
+        try
+        {
+            outStream.writeInt(length);
+            outStream.writeByte(type);
+            outStream.write(payload);
+            outStream.flush();
+        } catch (IOException e)
+        {
+            e.printStackTrace();
+        }
     }
 }

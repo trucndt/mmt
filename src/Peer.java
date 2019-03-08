@@ -11,7 +11,7 @@ public class Peer
     private int serverPort;
     private int hasFile;
 
-    private boolean[] bitfield;
+    private final boolean[] bitfield;
 
 
     Peer(int peerId, List<PeerInfo> peerList)
@@ -87,12 +87,18 @@ public class Peer
 
     public boolean checkPiece(int idx)
     {
-        return bitfield[idx];
+        synchronized (bitfield)
+        {
+            return bitfield[idx];
+        }
     }
 
     public void setHavePiece(int idx)
     {
-        bitfield[idx] = true;
+        synchronized (bitfield)
+        {
+            bitfield[idx] = true;
+        }
     }
 
     List<PeerInfo> getPeerList()

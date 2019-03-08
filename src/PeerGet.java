@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.net.ConnectException;
 import java.net.Socket;
 import java.net.UnknownHostException;
+import java.nio.ByteBuffer;
 
 public class PeerGet implements Runnable
 {
@@ -32,10 +33,35 @@ public class PeerGet implements Runnable
             sendHandShake(toSeed);
 
 
+            if (thisPeer.getHasFile() == 1)
+            {
+                socket.close();
+                return;
+            }
 
+            while (true)
+            {
+                // TODO wait for bitfield/have
 
+                byte[] msgLenType = new byte[Misc.MESSAGE_LENGTH_LENGTH + 1];
+                fromSeed.readFully(msgLenType);
 
-            socket.close();
+                int msgLen = ByteBuffer.wrap(msgLenType, 0, 4).getInt();
+                byte msgType = msgLenType[4];
+
+                switch (msgType)
+                {
+                    case Misc.TYPE_BITFIELD:
+                        // TODO handle bitfield
+                        break;
+
+                    case Misc.TYPE_HAVE:
+                        // TODO handle have
+                        break;
+
+                }
+            }
+
         } catch (IOException e)
         {
             e.printStackTrace();
@@ -80,6 +106,20 @@ public class PeerGet implements Runnable
         catch (IOException ioException)
         {
             ioException.printStackTrace();
+        }
+    }
+
+    private void sendMessage(DataOutputStream outStream, int length, byte type, byte[] payload)
+    {
+        try
+        {
+            outStream.writeInt(length);
+            outStream.writeByte(type);
+            outStream.write(payload);
+            outStream.flush();
+        } catch (IOException e)
+        {
+            e.printStackTrace();
         }
     }
 }
