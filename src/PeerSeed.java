@@ -81,6 +81,13 @@ public class PeerSeed implements Runnable
 
     }
 
+    /**
+     * send message to socket
+     * @param outStream output stream of the socket
+     * @param length message length
+     * @param type message type
+     * @param payload payload
+     */
     private void sendMessage(DataOutputStream outStream, int length, byte type, byte[] payload)
     {
         try
