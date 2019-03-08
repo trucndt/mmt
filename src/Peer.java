@@ -1,6 +1,7 @@
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.ArrayList;
 import java.util.List;
 
 public class Peer
@@ -9,6 +10,8 @@ public class Peer
     private final int peerId;
     private int serverPort;
     private int hasFile;
+
+    private boolean[] bitfield;
 
 
     Peer(int peerId, List<PeerInfo> peerList)
@@ -24,6 +27,20 @@ public class Peer
                 hasFile = peer.getHasFile();
                 break;
             }
+        }
+
+        int numPieces = (int)Math.ceil(MMT.FileSize*1.0/MMT.PieceSize);
+        bitfield = new boolean[numPieces];
+
+        if (hasFile == 1)
+        {
+            for (int i = 0; i < numPieces; i++)
+                bitfield[i] = true;
+        }
+        else
+        {
+            for (int i = 0; i < numPieces; i++)
+                bitfield[i] = false;
         }
     }
 
@@ -66,6 +83,16 @@ public class Peer
     void setHasFile(int hasFile)
     {
         this.hasFile = hasFile;
+    }
+
+    public boolean checkPiece(int idx)
+    {
+        return bitfield[idx];
+    }
+
+    public void setHavePiece(int idx)
+    {
+        bitfield[idx] = true;
     }
 
     List<PeerInfo> getPeerList()

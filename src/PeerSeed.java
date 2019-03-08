@@ -37,7 +37,12 @@ public class PeerSeed implements Runnable
                 }
             }
 
-            sendHandShake(toGet);
+            // Finish handshake, make a PeerGet to the target
+            if (targetId > thisPeer.getPeerId())
+            {
+                new Thread(new PeerGet(thisPeer, target)).start();
+            }
+
 
 
             socket.close();
@@ -65,22 +70,5 @@ public class PeerSeed implements Runnable
 
         return Integer.parseInt(rcvMsg.substring(28, 32));
 
-    }
-
-    private void sendHandShake(DataOutputStream toGet)
-    {
-        /* send message */
-        try
-        {
-            String messageOut = "P2PFILESHARINGPROJ" + "0000000000" + thisPeer.getPeerId();
-
-            toGet.write(messageOut.getBytes());
-            toGet.flush();
-            System.out.println("Send Handshake Message: { " + messageOut + " } to Client " + target.getPeerId());
-        }
-        catch (IOException ioException)
-        {
-            ioException.printStackTrace();
-        }
     }
 }
