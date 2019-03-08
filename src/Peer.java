@@ -1,8 +1,8 @@
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class Peer
 {
@@ -12,10 +12,14 @@ public class Peer
     private int hasFile;
 
     private final boolean[] bitfield;
+    private final Set<Integer> preferredNeighbor;
+    private final AtomicInteger optimistUnchoke;
+    private final Map<Integer, boolean[]> neighborBitfield;
 
 
     Peer(int peerId, List<PeerInfo> peerList)
     {
+        /* Initialize peer info */
         this.peerId = peerId;
         this.peerList = peerList;
 
@@ -29,6 +33,7 @@ public class Peer
             }
         }
 
+        /* Initialize bitfield */
         int numPieces = (int)Math.ceil(MMT.FileSize*1.0/MMT.PieceSize);
         bitfield = new boolean[numPieces];
 
@@ -42,6 +47,25 @@ public class Peer
             for (int i = 0; i < numPieces; i++)
                 bitfield[i] = false;
         }
+
+        /* Initialize neighbor bitfield*/
+        neighborBitfield = new HashMap<>(peerList.size() - 1);
+        for (PeerInfo p : peerList)
+            if (p.getPeerId() != peerId)
+            {
+                neighborBitfield.put(p.getPeerId(), new boolean[numPieces]);
+            }
+
+        /* Initialize preferred neighbor */
+        // Assume n-1 neighbor is preferred
+        preferredNeighbor = new HashSet<>(peerList.size() - 1);
+        for (int i = 0; i < peerList.size() - 1; i++)
+        {
+            preferredNeighbor.add(peerList.get(i).getPeerId());
+        }
+
+        // The last neighbor
+        optimistUnchoke = new AtomicInteger(peerList.get(peerList.size() - 1).getPeerId());
     }
 
     void start()
@@ -55,8 +79,7 @@ public class Peer
         {
             if (target.getPeerId() < peerId)
             {
-                Thread peerGet = new Thread(new PeerGet(this, target));
-                peerGet.start();
+                new Thread(new PeerGet(this, target)).start();
             }
         }
 

@@ -41,13 +41,16 @@ public class PeerGet implements Runnable
 
             while (true)
             {
-                // TODO wait for bitfield/have
-
+                // wait for incoming messages
                 byte[] msgLenType = new byte[Misc.MESSAGE_LENGTH_LENGTH + 1];
                 fromSeed.readFully(msgLenType);
 
-                int msgLen = ByteBuffer.wrap(msgLenType, 0, 4).getInt();
+                int msgLen = ByteBuffer.wrap(msgLenType, 0, 4).getInt() - 1; // not including message type
                 byte msgType = msgLenType[4];
+
+                // receive payload
+                byte[] rcvMsg = new byte[msgLen];
+                fromSeed.readFully(rcvMsg);
 
                 switch (msgType)
                 {
