@@ -8,23 +8,23 @@ public class PeerSeed implements Runnable
 
     private PeerInfo target;
 
-    PeerSeed(Socket connectionSocket, Peer thisPeer)
+    private final DataInputStream fromGet;
+    private final DataOutputStream toGet;
+
+    PeerSeed(Socket connectionSocket, Peer thisPeer) throws IOException
     {
         this.socket = connectionSocket;
         this.thisPeer = thisPeer;
+
+        fromGet = new DataInputStream(new BufferedInputStream(socket.getInputStream()));
+        toGet = new DataOutputStream(socket.getOutputStream());
     }
 
     @Override
     public void run()
     {
-        /*
-        Receive msg
-         */
         try
         {
-            DataInputStream fromGet = new DataInputStream(new BufferedInputStream(socket.getInputStream()));
-            DataOutputStream toGet = new DataOutputStream(socket.getOutputStream());
-
             int targetId = receiveHandShake(fromGet);
             if (targetId < 0) return;
 
@@ -54,12 +54,15 @@ public class PeerSeed implements Runnable
 
             //TODO wait for having new pieces
 
+
+            // sleep forever
+            Thread.currentThread().join();
+
             socket.close();
-        } catch (IOException e)
+        } catch (IOException | InterruptedException e)
         {
             e.printStackTrace();
         }
-
     }
 
     private int receiveHandShake(DataInputStream fromGet) throws IOException
@@ -83,19 +86,18 @@ public class PeerSeed implements Runnable
 
     /**
      * send message to socket
-     * @param outStream output stream of the socket
      * @param length message length
      * @param type message type
      * @param payload payload
      */
-    private void sendMessage(DataOutputStream outStream, int length, byte type, byte[] payload)
+    private void sendMessage(int length, byte type, byte[] payload)
     {
         try
         {
-            outStream.writeInt(length);
-            outStream.writeByte(type);
-            outStream.write(payload);
-            outStream.flush();
+            toGet.writeInt(length);
+            toGet.writeByte(type);
+            toGet.write(payload);
+            toGet.flush();
         } catch (IOException e)
         {
             e.printStackTrace();

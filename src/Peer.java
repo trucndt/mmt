@@ -68,7 +68,7 @@ public class Peer
         optimistUnchoke = new AtomicInteger(peerList.get(peerList.size() - 1).getPeerId());
     }
 
-    void start()
+    void start() throws InterruptedException, IOException
     {
         Thread serverListener = new Thread(new ServerListener(serverPort, this));
         serverListener.start();
@@ -84,13 +84,7 @@ public class Peer
         }
 
         // do something here
-        try
-        {
-            serverListener.join();
-        } catch (InterruptedException e)
-        {
-            e.printStackTrace();
-        }
+        serverListener.join();
     }
 
     int getPeerId()

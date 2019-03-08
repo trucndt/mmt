@@ -1,5 +1,6 @@
 import java.io.BufferedReader;
 import java.io.FileReader;
+import java.io.IOException;
 import java.net.InetAddress;
 import java.util.ArrayList;
 import java.util.List;
@@ -23,7 +24,7 @@ public class MMT
      * Start from here
      * @param args specifies peerId
      */
-    public static void main(String[] args)
+    public static void main(String[] args) throws IOException, InterruptedException
     {
         int peerId = 1001;
         if (args.length > 0)

@@ -14,24 +14,26 @@ public class PeerGet implements Runnable
 
     private Socket socket;
 
-    PeerGet(Peer thisPeer, PeerInfo target)
+    private final DataOutputStream toSeed;
+    private final DataInputStream fromSeed;
+
+    PeerGet(Peer thisPeer, PeerInfo target) throws IOException
     {
         this.target = target;
         this.thisPeer = thisPeer;
+
+        makeConnection();
+
+        toSeed = new DataOutputStream(socket.getOutputStream());
+        fromSeed = new DataInputStream(new BufferedInputStream(socket.getInputStream()));
     }
 
     @Override
     public void run()
     {
-        makeConnection();
-
         try
         {
-            DataOutputStream toSeed = new DataOutputStream(socket.getOutputStream());
-            DataInputStream fromSeed = new DataInputStream(new BufferedInputStream(socket.getInputStream()));
-
             sendHandShake(toSeed);
-
 
             if (thisPeer.getHasFile() == 1)
             {
@@ -49,20 +51,10 @@ public class PeerGet implements Runnable
                 byte msgType = msgLenType[4];
 
                 // receive payload
-                byte[] rcvMsg = new byte[msgLen];
-                fromSeed.readFully(rcvMsg);
+                byte[] payload = new byte[msgLen];
+                fromSeed.readFully(payload);
 
-                switch (msgType)
-                {
-                    case Misc.TYPE_BITFIELD:
-                        // TODO handle bitfield
-                        break;
-
-                    case Misc.TYPE_HAVE:
-                        // TODO handle have
-                        break;
-
-                }
+                processReceivedMessage(msgType, payload);
             }
 
         } catch (IOException e)
@@ -112,21 +104,38 @@ public class PeerGet implements Runnable
         }
     }
 
+    private void processReceivedMessage(int msgType, byte[] rcvMsg)
+    {
+        switch (msgType)
+        {
+            case Misc.TYPE_BITFIELD:
+                // TODO handle bitfield
+                break;
+
+            case Misc.TYPE_HAVE:
+                // TODO handle have
+                break;
+
+            case Misc.TYPE_PIECE:
+                break;
+
+        }
+    }
+
     /**
      * send message to socket
-     * @param outStream output stream of the socket
      * @param length message length
      * @param type message type
      * @param payload payload
      */
-    private void sendMessage(DataOutputStream outStream, int length, byte type, byte[] payload)
+    private void sendMessage(int length, byte type, byte[] payload)
     {
         try
         {
-            outStream.writeInt(length);
-            outStream.writeByte(type);
-            outStream.write(payload);
-            outStream.flush();
+            toSeed.writeInt(length);
+            toSeed.writeByte(type);
+            toSeed.write(payload);
+            toSeed.flush();
         } catch (IOException e)
         {
             e.printStackTrace();
