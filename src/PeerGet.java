@@ -156,7 +156,7 @@ public class PeerGet implements Runnable
     {
         toSeed.writeInt(length);
         toSeed.writeByte(type);
-        toSeed.write(payload);
+        toSeed.write(payload, 0, length  - 1);
         toSeed.flush();
     }
 }

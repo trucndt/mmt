@@ -107,7 +107,7 @@ public class PeerSeed implements Runnable
         System.out.println("Sending message of type " + type + " with length " + length + " to " + target.getPeerId());
         toGet.writeInt(length);
         toGet.writeByte(type);
-        toGet.write(payload);
+        toGet.write(payload, 0, length  - 1);
         toGet.flush();
     }
 
