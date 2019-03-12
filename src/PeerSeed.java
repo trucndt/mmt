@@ -40,7 +40,7 @@ public class PeerSeed implements Runnable
             // Finish handshake, make a PeerGet to the target
             if (targetId > thisPeer.getPeerId())
             {
-                new Thread(new PeerGet(thisPeer, target)).start();
+                createPeerGet();
             }
 
             if (thisPeer.getHasFile() == 1)
@@ -53,13 +53,25 @@ public class PeerSeed implements Runnable
             }
 
             //TODO wait for having new pieces
+//            sendMessage(5, Misc.TYPE_HAVE, new byte[]{1, 2, 3, 4});
 
 
             // sleep forever
             Thread.currentThread().join();
 
             socket.close();
-        } catch (IOException | InterruptedException e)
+        } catch (IOException e)
+        {
+            e.printStackTrace();
+            try
+            {
+                socket.close();
+            } catch (IOException e1)
+            {
+                e1.printStackTrace();
+                System.err.println("Cannot close socket");
+            }
+        } catch (InterruptedException e)
         {
             e.printStackTrace();
         }
@@ -90,17 +102,27 @@ public class PeerSeed implements Runnable
      * @param type message type
      * @param payload payload
      */
-    private void sendMessage(int length, byte type, byte[] payload)
+    private void sendMessage(int length, byte type, byte[] payload) throws IOException
     {
-        try
+        System.out.println("Sending message of type " + type + " with length " + length + " to " + target.getPeerId());
+        toGet.writeInt(length);
+        toGet.writeByte(type);
+        toGet.write(payload);
+        toGet.flush();
+    }
+
+    private void createPeerGet() throws IOException, InterruptedException
+    {
+        PeerGet peerGet = new PeerGet(thisPeer, target);
+        new Thread(peerGet).start();
+
+        // wait until peerGet finish handshake
+        while (!peerGet.finishHandshake.get())
         {
-            toGet.writeInt(length);
-            toGet.writeByte(type);
-            toGet.write(payload);
-            toGet.flush();
-        } catch (IOException e)
-        {
-            e.printStackTrace();
+            synchronized (peerGet.finishHandshake)
+            {
+                peerGet.finishHandshake.wait();
+            }
         }
     }
 }

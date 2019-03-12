@@ -6,6 +6,7 @@ import java.net.ConnectException;
 import java.net.Socket;
 import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class PeerGet implements Runnable
 {
@@ -17,6 +18,8 @@ public class PeerGet implements Runnable
     private final DataOutputStream toSeed;
     private final DataInputStream fromSeed;
 
+    public final AtomicBoolean finishHandshake;
+
     PeerGet(Peer thisPeer, PeerInfo target) throws IOException
     {
         this.target = target;
@@ -26,6 +29,8 @@ public class PeerGet implements Runnable
 
         toSeed = new DataOutputStream(socket.getOutputStream());
         fromSeed = new DataInputStream(new BufferedInputStream(socket.getInputStream()));
+
+        finishHandshake = new AtomicBoolean(false);
     }
 
     @Override
@@ -34,6 +39,13 @@ public class PeerGet implements Runnable
         try
         {
             sendHandShake(toSeed);
+
+            // Notify other threads that it has finished handshake
+            synchronized (finishHandshake)
+            {
+                finishHandshake.set(true);
+                finishHandshake.notifyAll();
+            }
 
             if (thisPeer.getHasFile() == 1)
             {
@@ -60,6 +72,14 @@ public class PeerGet implements Runnable
         } catch (IOException e)
         {
             e.printStackTrace();
+            try
+            {
+                socket.close();
+            } catch (IOException e1)
+            {
+                e1.printStackTrace();
+                System.err.println("Cannot close socket");
+            }
         }
     }
 
@@ -106,6 +126,7 @@ public class PeerGet implements Runnable
 
     private void processReceivedMessage(int msgType, byte[] rcvMsg)
     {
+        System.out.println("Receive msg of type " + msgType + " from " + target.getPeerId());
         switch (msgType)
         {
             case Misc.TYPE_BITFIELD:
@@ -131,17 +152,11 @@ public class PeerGet implements Runnable
      * @param type message type
      * @param payload payload
      */
-    private void sendMessage(int length, byte type, byte[] payload)
+    private void sendMessage(int length, byte type, byte[] payload) throws IOException
     {
-        try
-        {
-            toSeed.writeInt(length);
-            toSeed.writeByte(type);
-            toSeed.write(payload);
-            toSeed.flush();
-        } catch (IOException e)
-        {
-            e.printStackTrace();
-        }
+        toSeed.writeInt(length);
+        toSeed.writeByte(type);
+        toSeed.write(payload);
+        toSeed.flush();
     }
 }
