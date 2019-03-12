@@ -111,6 +111,11 @@ public class PeerSeed implements Runnable
         toGet.flush();
     }
 
+    /**
+     * Create a PeerGet thread and wait until it finished handshake
+     * @throws IOException
+     * @throws InterruptedException
+     */
     private void createPeerGet() throws IOException, InterruptedException
     {
         PeerGet peerGet = new PeerGet(thisPeer, target);
