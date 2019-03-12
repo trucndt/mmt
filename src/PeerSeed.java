@@ -52,9 +52,11 @@ public class PeerSeed implements Runnable
                 //TODO if interested and prefered -> unchoke
             }
 
-            //TODO wait for having new pieces
-//            sendMessage(5, Misc.TYPE_HAVE, new byte[]{1, 2, 3, 4});
+            //NOTE only for testing the HAVE message
+            sendHave();
 
+
+            //TODO wait for having new pieces
 
             // sleep forever
             Thread.currentThread().join();
@@ -79,7 +81,7 @@ public class PeerSeed implements Runnable
 
     private int receiveHandShake(DataInputStream fromGet) throws IOException
     {
-        byte[] buffer = new byte[Misc.HANDSHAKE_LENGTH];
+        byte[] buffer = new byte[Misc.LENGTH_HANDSHAKE];
         fromGet.readFully(buffer);
 
         String rcvMsg = new String(buffer);
@@ -130,4 +132,12 @@ public class PeerSeed implements Runnable
             }
         }
     }
+
+    private void sendHave() throws IOException
+    {
+        /* send message */
+        byte[] payload = new byte[]{0,0,0,1};
+        sendMessage(Misc.LENGTH_HAVE, Misc.TYPE_HAVE, payload);
+    }
+
 }

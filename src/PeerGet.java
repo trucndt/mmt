@@ -124,7 +124,7 @@ public class PeerGet implements Runnable
         }
     }
 
-    private void processReceivedMessage(int msgType, byte[] rcvMsg)
+    private void processReceivedMessage(int msgType, byte[] rcvMsg) throws IOException
     {
         System.out.println("Receive msg of type " + msgType + " from " + target.getPeerId());
         switch (msgType)
@@ -134,7 +134,14 @@ public class PeerGet implements Runnable
                 break;
 
             case Misc.TYPE_HAVE:
-                // TODO handle have
+                //handle have
+                int index = Misc.byteArrayToInt(rcvMsg);
+                boolean exist = thisPeer.checkPiece(index);
+                System.out.println(exist);
+                if (exist)
+                    sendMessage(1, Misc.TYPE_NOT_INTERESTED, null);
+                else
+                    sendMessage(1, Misc.TYPE_INTERESTED, null);
                 break;
 
             case Misc.TYPE_UNCHOKE:
@@ -154,9 +161,11 @@ public class PeerGet implements Runnable
      */
     private void sendMessage(int length, byte type, byte[] payload) throws IOException
     {
+        System.out.println("Sending message of type " + type + " with length " + length + " to " + target.getPeerId());
         toSeed.writeInt(length);
         toSeed.writeByte(type);
         toSeed.write(payload, 0, length  - 1);
         toSeed.flush();
     }
+
 }
