@@ -59,19 +59,22 @@ public class PeerSeed implements Runnable
 
             //NOTE only for testing the HAVE message
             sendHave();
-            waitForIncommingMessage();
+            waitForIncomingMessage();
 
 
             // NOTE only for testing REQUEST/PIECE
             sendMessage(1, Misc.TYPE_UNCHOKE, null);
-            waitForIncommingMessage();
+            while (true)
+            {
+                waitForIncomingMessage();
+            }
 
             //TODO wait for having new pieces
 
             // sleep forever
-            Thread.currentThread().join();
+//            Thread.currentThread().join();
 
-            socket.close();
+//            socket.close();
         } catch (IOException e)
         {
             e.printStackTrace();
@@ -135,9 +138,9 @@ public class PeerSeed implements Runnable
         new Thread(peerGet).start();
 
         // wait until peerGet finish handshake
-        while (!peerGet.finishHandshake.get())
+        synchronized (peerGet.finishHandshake)
         {
-            synchronized (peerGet.finishHandshake)
+            while (!peerGet.finishHandshake.get())
             {
                 peerGet.finishHandshake.wait();
             }
@@ -155,7 +158,7 @@ public class PeerSeed implements Runnable
      * Wait on socket until a new message arrives
      * @throws IOException
      */
-    private void waitForIncommingMessage() throws IOException
+    private void waitForIncomingMessage() throws IOException
     {
         byte[] msgLenType = new byte[Misc.MESSAGE_LENGTH_LENGTH + 1];
         fromGet.readFully(msgLenType);
