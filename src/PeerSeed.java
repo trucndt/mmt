@@ -55,7 +55,12 @@ public class PeerSeed implements Runnable
 
             //NOTE only for testing the HAVE message
             sendHave();
+            waitForIncommingMessage();
 
+
+            // NOTE only for testing REQUEST/PIECE
+            sendMessage(1, Misc.TYPE_UNCHOKE, null);
+            waitForIncommingMessage();
 
             //TODO wait for having new pieces
 
@@ -173,6 +178,7 @@ public class PeerSeed implements Runnable
         switch (msgType)
         {
             case Misc.TYPE_REQUEST:
+                System.out.println("Piece requested: " + Misc.byteArrayToInt(rcvMsg));
                 break;
 
             case Misc.TYPE_INTERESTED:

@@ -151,12 +151,16 @@ public class PeerGet implements Runnable
                 else
                     sendMessage(1, Misc.TYPE_INTERESTED, null);
 
-                thisPeer.printNeighborBitfield();
+//                thisPeer.printNeighborBitfield();
                 break;
 
             case Misc.TYPE_UNCHOKE:
-                // send request
+                // find piece
                 int pieceIdx = thisPeer.selectNewPieceFromNeighbor(target.getPeerId());
+                if (pieceIdx == -1) return;
+
+                // form request msg
+                sendMessage(Misc.LENGTH_REQUEST, Misc.TYPE_REQUEST, Misc.intToByteArray(pieceIdx));
                 break;
 
             case Misc.TYPE_PIECE:

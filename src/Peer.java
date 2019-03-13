@@ -126,7 +126,7 @@ public class Peer
     /**
      * Randomly select a piece that neighbor has but I don't
      * @param neighborId peer ID of neighbor
-     * @return The piece index or -1 can't select
+     * @return The piece index or -1 if can't select
      */
     public int selectNewPieceFromNeighbor(int neighborId)
     {
