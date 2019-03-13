@@ -1,6 +1,8 @@
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.LinkedList;
+import java.util.List;
 
 public class ServerListener implements Runnable
 {
@@ -8,18 +10,16 @@ public class ServerListener implements Runnable
     private final Peer thisPeer;
     private final int serverPort;
 
-    ServerListener(int port, Peer thisPeer)
+    public final List<PeerSeed> listOfPeerSeeds;
+
+    ServerListener(int port, Peer thisPeer) throws IOException
     {
         this.thisPeer = thisPeer;
         this.serverPort = port;
-        try
-        {
-            welcomeSocket = new ServerSocket(port);
-        }
-        catch (IOException e)
-        {
-            e.printStackTrace();
-        }
+
+        welcomeSocket = new ServerSocket(port);
+
+        listOfPeerSeeds = new LinkedList<>();
     }
 
     @Override
@@ -34,8 +34,11 @@ public class ServerListener implements Runnable
             {
                 Socket connectionSocket = welcomeSocket.accept();
                 System.out.println("new connection");
-                Thread serverThread = new Thread(new PeerSeed(connectionSocket, thisPeer));
-                serverThread.start();
+
+                PeerSeed ps = new PeerSeed(connectionSocket, thisPeer);
+                new Thread(ps).start();
+
+                listOfPeerSeeds.add(ps);
             }
         }
         catch (IOException e)
