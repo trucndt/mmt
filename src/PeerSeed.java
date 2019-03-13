@@ -1,5 +1,6 @@
 import java.io.*;
 import java.net.Socket;
+import java.nio.ByteBuffer;
 
 public class PeerSeed implements Runnable
 {
@@ -138,6 +139,48 @@ public class PeerSeed implements Runnable
         /* send message */
         byte[] payload = new byte[]{0,0,0,1};
         sendMessage(Misc.LENGTH_HAVE, Misc.TYPE_HAVE, payload);
+    }
+
+    /**
+     * Wait on socket until a new message arrives
+     * @throws IOException
+     */
+    private void waitForIncommingMessage() throws IOException
+    {
+        byte[] msgLenType = new byte[Misc.MESSAGE_LENGTH_LENGTH + 1];
+        fromGet.readFully(msgLenType);
+
+        int msgLen = ByteBuffer.wrap(msgLenType, 0, 4).getInt() - 1; // not including message type
+        byte msgType = msgLenType[4];
+
+        // receive payload
+        byte[] payload = new byte[msgLen];
+        fromGet.readFully(payload);
+
+        processReceivedMessage(msgType, payload);
+    }
+
+    /**
+     * Process message
+     * @param msgType Type of msg
+     * @param rcvMsg Payload
+     * @throws IOException
+     */
+    private void processReceivedMessage(int msgType, byte[] rcvMsg) throws IOException
+    {
+        System.out.println("Receive msg of type " + msgType + " from " + target.getPeerId());
+
+        switch (msgType)
+        {
+            case Misc.TYPE_REQUEST:
+                break;
+
+            case Misc.TYPE_INTERESTED:
+                break;
+
+            case Misc.TYPE_NOT_INTERESTED:
+                break;
+        }
     }
 
 }

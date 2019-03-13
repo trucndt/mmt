@@ -122,4 +122,50 @@ public class Peer
     {
         return peerList;
     }
+
+    /**
+     * Randomly select a piece that neighbor has but I don't
+     * @param neighborId peer ID of neighbor
+     * @return The piece index or -1 can't select
+     */
+    public int selectNewPieceFromNeighbor(int neighborId)
+    {
+        synchronized (bitfield)
+        {
+            synchronized (neighborBitfield)
+            {
+                for (int i = 0; i < bitfield.length; i++)
+                {
+                    if (!bitfield[i] && neighborBitfield.get(neighborId)[i])
+                        return i;
+                }
+            }
+        }
+
+        return -1;
+    }
+
+    /**
+     * Update neighbor's bitfield
+     * @param neighborId Peer ID of neighbor
+     * @param index Piece index
+     */
+    public void setNeighborBitfield(int neighborId, int index)
+    {
+        synchronized (neighborBitfield)
+        {
+            neighborBitfield.get(neighborId)[index] = true;
+        }
+    }
+
+    /**
+     * Print out bitfield of each neighbor
+     */
+    public void printNeighborBitfield()
+    {
+        for (int i : neighborBitfield.keySet())
+        {
+            System.out.println("key: " + i + " value: " + Arrays.toString(neighborBitfield.get(i)));
+        }
+    }
 }

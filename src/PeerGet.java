@@ -124,6 +124,12 @@ public class PeerGet implements Runnable
         }
     }
 
+    /**
+     * Process message
+     * @param msgType Type of msg
+     * @param rcvMsg Payload
+     * @throws IOException
+     */
     private void processReceivedMessage(int msgType, byte[] rcvMsg) throws IOException
     {
         System.out.println("Receive msg of type " + msgType + " from " + target.getPeerId());
@@ -137,14 +143,20 @@ public class PeerGet implements Runnable
                 //handle have
                 int index = Misc.byteArrayToInt(rcvMsg);
                 boolean exist = thisPeer.checkPiece(index);
-                System.out.println(exist);
+//                System.out.println(exist);
+                thisPeer.setNeighborBitfield(target.getPeerId(),index);
+
                 if (exist)
                     sendMessage(1, Misc.TYPE_NOT_INTERESTED, null);
                 else
                     sendMessage(1, Misc.TYPE_INTERESTED, null);
+
+                thisPeer.printNeighborBitfield();
                 break;
 
             case Misc.TYPE_UNCHOKE:
+                // send request
+                int pieceIdx = thisPeer.selectNewPieceFromNeighbor(target.getPeerId());
                 break;
 
             case Misc.TYPE_PIECE:
