@@ -88,8 +88,57 @@ public class Peer
             }
         }
 
-        // do something here
-        serverListener.join();
+        if (hasFile == 0)
+        {
+            waitUntilBitfieldFull();
+        }
+
+        waitUntilNeighborBitfieldFull();
+    }
+
+    private void waitUntilBitfieldFull() throws InterruptedException
+    {
+        synchronized (bitfield)
+        {
+            while (true)
+            {
+                boolean full = true;
+                for (boolean b : bitfield)
+                    if (!b)
+                    {
+                        full = false;
+                        break;
+                    }
+
+                if (full) break;
+                else bitfield.wait();
+            }
+        }
+    }
+
+    private void waitUntilNeighborBitfieldFull() throws InterruptedException
+    {
+        // TODO: optimize this code
+        synchronized (neighborBitfield)
+        {
+            while (true)
+            {
+                boolean full = true;
+                for (Map.Entry<Integer, boolean[]> item : neighborBitfield.entrySet())
+                {
+                    for (boolean b : item.getValue())
+                        if (!b)
+                        {
+                            full = false;
+                            break;
+                        }
+                    if (!full) break;
+                }
+
+                if (full) break;
+                else neighborBitfield.wait();
+            }
+        }
     }
 
     int getPeerId()
@@ -120,6 +169,7 @@ public class Peer
         synchronized (bitfield)
         {
             bitfield[idx] = true;
+            bitfield.notifyAll();
         }
     }
 
@@ -160,6 +210,7 @@ public class Peer
         synchronized (neighborBitfield)
         {
             neighborBitfield.get(neighborId)[index] = true;
+            neighborBitfield.notifyAll();
         }
     }
 
