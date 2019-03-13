@@ -16,6 +16,8 @@ public class Peer
     private final AtomicInteger optimistUnchoke;
     private final Map<Integer, boolean[]> neighborBitfield;
 
+    public final String FILE_PATH;
+    public final int NUM_OF_PIECES;
 
     Peer(int peerId, List<PeerInfo> peerList)
     {
@@ -34,17 +36,17 @@ public class Peer
         }
 
         /* Initialize bitfield */
-        int numPieces = (int)Math.ceil(MMT.FileSize*1.0/MMT.PieceSize);
-        bitfield = new boolean[numPieces];
+        NUM_OF_PIECES = (int)Math.ceil(MMT.FileSize*1.0/MMT.PieceSize);
+        bitfield = new boolean[NUM_OF_PIECES];
 
         if (hasFile == 1)
         {
-            for (int i = 0; i < numPieces; i++)
+            for (int i = 0; i < NUM_OF_PIECES; i++)
                 bitfield[i] = true;
         }
         else
         {
-            for (int i = 0; i < numPieces; i++)
+            for (int i = 0; i < NUM_OF_PIECES; i++)
                 bitfield[i] = false;
         }
 
@@ -53,7 +55,7 @@ public class Peer
         for (PeerInfo p : peerList)
             if (p.getPeerId() != peerId)
             {
-                neighborBitfield.put(p.getPeerId(), new boolean[numPieces]);
+                neighborBitfield.put(p.getPeerId(), new boolean[NUM_OF_PIECES]);
             }
 
         /* Initialize preferred neighbor */
@@ -66,6 +68,9 @@ public class Peer
 
         // The last neighbor
         optimistUnchoke = new AtomicInteger(peerList.get(peerList.size() - 1).getPeerId());
+
+        // Set file path
+        FILE_PATH = "peer_" + peerId + "/" + MMT.FileName;
     }
 
     void start() throws InterruptedException, IOException

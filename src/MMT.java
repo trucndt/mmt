@@ -15,7 +15,7 @@ public class MMT
     public static int OptimisticUnchokingInterval = 15;
     public static String FileName = "TheFile.dat";
     public static long FileSize = 10000232;
-    public static long PieceSize = 32768;
+    public static int PieceSize = 32768;
 
     private static final String COMMON_CFG_PATH = "Common.cfg";
     private static final String PEERINFO_CFG_PATH = "PeerInfo.cfg";
@@ -50,41 +50,35 @@ public class MMT
     /**
      * read Common.cfg and update the attributes
      */
-    private static void readCommonCfg()
+    private static void readCommonCfg() throws IOException
     {
-        try
-        {
-            BufferedReader reader = new BufferedReader(new FileReader(COMMON_CFG_PATH));
+        BufferedReader reader = new BufferedReader(new FileReader(COMMON_CFG_PATH));
 
-            String st = reader.readLine();
-            String[] tokens = st.split("\\s+");
-            NumOfPreferredNeighbors = Integer.parseInt(tokens[1]);
+        String st = reader.readLine();
+        String[] tokens = st.split("\\s+");
+        NumOfPreferredNeighbors = Integer.parseInt(tokens[1]);
 
-            st = reader.readLine();
-            tokens = st.split("\\s+");
-            UnchokingInterval = Integer.parseInt(tokens[1]);
+        st = reader.readLine();
+        tokens = st.split("\\s+");
+        UnchokingInterval = Integer.parseInt(tokens[1]);
 
-            st = reader.readLine();
-            tokens = st.split("\\s+");
-            OptimisticUnchokingInterval = Integer.parseInt(tokens[1]);
+        st = reader.readLine();
+        tokens = st.split("\\s+");
+        OptimisticUnchokingInterval = Integer.parseInt(tokens[1]);
 
-            st = reader.readLine();
-            tokens = st.split("\\s+");
-            FileName = tokens[1];
+        st = reader.readLine();
+        tokens = st.split("\\s+");
+        FileName = tokens[1];
 
-            st = reader.readLine();
-            tokens = st.split("\\s+");
-            FileSize = Integer.parseInt(tokens[1]);
+        st = reader.readLine();
+        tokens = st.split("\\s+");
+        FileSize = Integer.parseInt(tokens[1]);
 
-            st = reader.readLine();
-            tokens = st.split("\\s+");
-            PieceSize = Integer.parseInt(tokens[1]);
+        st = reader.readLine();
+        tokens = st.split("\\s+");
+        PieceSize = Integer.parseInt(tokens[1]);
 
-            reader.close();
-        } catch (Exception ex)
-        {
-            ex.printStackTrace();
-        }
+        reader.close();
     }
 
     /**
@@ -104,7 +98,7 @@ public class MMT
      * Read PeerInfo.cfg
      * @return list of PeerInfo
      */
-    private static List<PeerInfo> readPeerCfg()
+    private static List<PeerInfo> readPeerCfg() throws IOException
     {
         int peerID;
         int listeningPort;
@@ -117,25 +111,20 @@ public class MMT
         // read each peer
         // create an object peerInfo for each
         // Add that peer to peerInfoList
-        try {
-            BufferedReader reader = new BufferedReader(new FileReader(PEERINFO_CFG_PATH));
+        BufferedReader reader = new BufferedReader(new FileReader(PEERINFO_CFG_PATH));
 
-            String st;
-            while ((st = reader.readLine()) != null)
-            {
-                final String[] tokens = st.split("\\s+");
-                peerID = Integer.parseInt(tokens[0]);
-                ipAddress = InetAddress.getByName(tokens[1]);
-                listeningPort = Integer.parseInt(tokens[2]);
-                fileState = Integer.parseInt(tokens[3]);
-                PeerInfo pi = new PeerInfo(peerID, ipAddress.getHostAddress(), listeningPort, fileState);
-                peerInfoList.add(pi);
-            }
-            reader.close();
-        } catch (Exception ex)
+        String st;
+        while ((st = reader.readLine()) != null)
         {
-            ex.printStackTrace();
+            final String[] tokens = st.split("\\s+");
+            peerID = Integer.parseInt(tokens[0]);
+            ipAddress = InetAddress.getByName(tokens[1]);
+            listeningPort = Integer.parseInt(tokens[2]);
+            fileState = Integer.parseInt(tokens[3]);
+            PeerInfo pi = new PeerInfo(peerID, ipAddress.getHostAddress(), listeningPort, fileState);
+            peerInfoList.add(pi);
         }
+        reader.close();
 
         return peerInfoList;
     }

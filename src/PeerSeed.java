@@ -12,6 +12,8 @@ public class PeerSeed implements Runnable
     private final DataInputStream fromGet;
     private final DataOutputStream toGet;
 
+    private final RandomAccessFile file;
+
     PeerSeed(Socket connectionSocket, Peer thisPeer) throws IOException
     {
         this.socket = connectionSocket;
@@ -19,6 +21,8 @@ public class PeerSeed implements Runnable
 
         fromGet = new DataInputStream(new BufferedInputStream(socket.getInputStream()));
         toGet = new DataOutputStream(socket.getOutputStream());
+
+        file = new RandomAccessFile(thisPeer.FILE_PATH, "r");
     }
 
     @Override
@@ -74,10 +78,11 @@ public class PeerSeed implements Runnable
             try
             {
                 socket.close();
+                file.close();
             } catch (IOException e1)
             {
                 e1.printStackTrace();
-                System.err.println("Cannot close socket");
+                System.err.println("Seed: Cannot close socket");
             }
         } catch (InterruptedException e)
         {
@@ -91,12 +96,12 @@ public class PeerSeed implements Runnable
         fromGet.readFully(buffer);
 
         String rcvMsg = new String(buffer);
-        System.out.println("Receive msg " + rcvMsg);
+        System.out.println("Seed: Receive msg " + rcvMsg);
 
         /* check handshake message */
         if (!rcvMsg.substring(0, 18).equals("P2PFILESHARINGPROJ"))
         {
-            System.out.println("Wrong handshake");
+            System.out.println("Seed: Wrong handshake");
             return -1;
         }
 
@@ -112,7 +117,7 @@ public class PeerSeed implements Runnable
      */
     private void sendMessage(int length, byte type, byte[] payload) throws IOException
     {
-        System.out.println("Sending message of type " + type + " with length " + length + " to " + target.getPeerId());
+        System.out.println("Seed: Sending message of type " + type + " with length " + length + " to " + target.getPeerId());
         toGet.writeInt(length);
         toGet.writeByte(type);
         toGet.write(payload, 0, length  - 1);
@@ -173,12 +178,14 @@ public class PeerSeed implements Runnable
      */
     private void processReceivedMessage(int msgType, byte[] rcvMsg) throws IOException
     {
-        System.out.println("Receive msg of type " + msgType + " from " + target.getPeerId());
+        System.out.println("Seed: Receive msg of type " + msgType + " from " + target.getPeerId());
 
         switch (msgType)
         {
             case Misc.TYPE_REQUEST:
-                System.out.println("Piece requested: " + Misc.byteArrayToInt(rcvMsg));
+                int pieceIdx = Misc.byteArrayToInt(rcvMsg);
+                System.out.println("Seed: Piece requested: " + pieceIdx);
+                sendPiece(pieceIdx);
                 break;
 
             case Misc.TYPE_INTERESTED:
@@ -187,6 +194,28 @@ public class PeerSeed implements Runnable
             case Misc.TYPE_NOT_INTERESTED:
                 break;
         }
+    }
+
+    /**
+     * Send PIECE msg
+     * @param pieceIdx index of piece
+     * @throws IOException
+     */
+    private void sendPiece(int pieceIdx) throws IOException
+    {
+        int numPiece = thisPeer.NUM_OF_PIECES;
+        int offset = (pieceIdx == numPiece - 1)? (int)(MMT.FileSize - (numPiece - 1) * MMT.PieceSize) : MMT.PieceSize;
+        long filePtr = MMT.PieceSize * pieceIdx;
+
+        /* WARNING: flaws if offset is bigger than int */
+        byte[] buffer = new byte[4 + offset];
+        System.arraycopy(Misc.intToByteArray(pieceIdx), 0, buffer, 0, 4);
+
+        file.seek(filePtr);
+        file.readFully(buffer, 4, offset); /* WARNING: flaws if offset is bigger than int */
+
+        // Form PIECE msg
+        sendMessage(1 + buffer.length, Misc.TYPE_PIECE, buffer);
     }
 
 }
