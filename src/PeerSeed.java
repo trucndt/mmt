@@ -1,6 +1,7 @@
 import java.io.*;
 import java.net.Socket;
 import java.nio.ByteBuffer;
+import java.util.Arrays;
 
 public class PeerSeed implements Runnable
 {
@@ -50,20 +51,16 @@ public class PeerSeed implements Runnable
 
             if (thisPeer.getHasFile() == 1)
             {
-                //TODO send bitfield
+                //send bitfield
+                byte[] bitfieldMsg = makeBitfieldMsg(thisPeer.getBitfield());
+                sendMessage(bitfieldMsg.length + 1, Misc.TYPE_BITFIELD, bitfieldMsg);
 
-                //TODO wait for interested
-
-                //TODO if interested and prefered -> unchoke
+                //wait for interested
+                waitForIncomingMessage();
             }
 
-            //NOTE only for testing the HAVE message
-            sendHave();
-            waitForIncomingMessage();
-
-
             // NOTE only for testing REQUEST/PIECE
-            sendMessage(1, Misc.TYPE_UNCHOKE, null);
+//            sendMessage(1, Misc.TYPE_UNCHOKE, null);
             while (true)
             {
                 waitForIncomingMessage();
@@ -71,10 +68,8 @@ public class PeerSeed implements Runnable
 
             //TODO wait for having new pieces
 
-            // sleep forever
-//            Thread.currentThread().join();
-
-//            socket.close();
+            //NOTE only for testing the HAVE message
+//            sendHave();
         } catch (IOException e)
         {
             e.printStackTrace();
@@ -150,7 +145,7 @@ public class PeerSeed implements Runnable
     private void sendHave() throws IOException
     {
         /* send message */
-        byte[] payload = new byte[]{0,0,0,1};
+        byte[] payload = new byte[]{0,0,0,0};
         sendMessage(Misc.LENGTH_HAVE, Misc.TYPE_HAVE, payload);
     }
 
@@ -192,6 +187,8 @@ public class PeerSeed implements Runnable
                 break;
 
             case Misc.TYPE_INTERESTED:
+                //TODO: NOTE only for testing REQUEST/PIECE
+                sendMessage(1, Misc.TYPE_UNCHOKE, null);
                 break;
 
             case Misc.TYPE_NOT_INTERESTED:
@@ -219,6 +216,28 @@ public class PeerSeed implements Runnable
 
         // Form PIECE msg
         sendMessage(1 + buffer.length, Misc.TYPE_PIECE, buffer);
+    }
+
+    /**
+     * Translate bitfield to payload, MSB -> index 0
+     * @param bitfield bitfield
+     * @return bitfield payload
+     */
+    private byte[] makeBitfieldMsg(boolean[] bitfield)
+    {
+        byte[] data = new byte[(int)Math.ceil(bitfield.length*1.0/8)];
+        Arrays.fill(data, (byte) 0);
+
+        int byteIdx = 0;
+        for (int i = 0; i < bitfield.length ; i++)
+        {
+            if (bitfield[i])
+                data[byteIdx] |= 0x80 >> (i % 8);
+
+            if ((i + 1) % 8 == 0) byteIdx++;
+        }
+
+        return data;
     }
 
 }

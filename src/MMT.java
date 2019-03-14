@@ -1,4 +1,5 @@
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
 import java.net.InetAddress;
@@ -35,6 +36,8 @@ public class MMT
         {
             System.out.println("No command line arguments found");
         }
+
+        createPeerDir(peerId);
 
         readCommonCfg();
 //        printCommonCfg();
@@ -127,5 +130,13 @@ public class MMT
         reader.close();
 
         return peerInfoList;
+    }
+
+    private static void createPeerDir(int peerId) throws IOException
+    {
+        File peerDir = new File("peer_" + peerId);
+        if (!peerDir.exists())
+            if (!peerDir.mkdir())
+                throw new IOException("Can't create peer directory");
     }
 }

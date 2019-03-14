@@ -173,9 +173,31 @@ public class Peer
         }
     }
 
+    public boolean[] getBitfield()
+    {
+        synchronized (bitfield)
+        {
+            return bitfield;
+        }
+    }
+
+
     List<PeerInfo> getPeerList()
     {
         return peerList;
+    }
+
+    /**
+     * Update neighbor's bitfield
+     * @param neighborId peer ID of neighbor
+     * @param bf bitfield
+     */
+    public void updateNeighborBitfield(int neighborId, boolean[] bf)
+    {
+        synchronized (neighborBitfield)
+        {
+            neighborBitfield.put(neighborId, bf);
+        }
     }
 
     /**

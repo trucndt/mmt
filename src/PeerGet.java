@@ -138,7 +138,14 @@ public class PeerGet implements Runnable
         switch (msgType)
         {
             case Misc.TYPE_BITFIELD:
-                // TODO handle bitfield
+                boolean[] seedBitfield = makeBitfieldFromPayload(rcvMsg);
+                thisPeer.updateNeighborBitfield(target.getPeerId(), seedBitfield);
+
+                // if there exists an interesting piece, send INTERESTED
+                if (thisPeer.selectNewPieceFromNeighbor(target.getPeerId()) != -1)
+                    sendMessage(1, Misc.TYPE_INTERESTED, null);
+                else
+                    sendMessage(1, Misc.TYPE_NOT_INTERESTED, null);
                 break;
 
             case Misc.TYPE_HAVE:
@@ -216,6 +223,25 @@ public class PeerGet implements Runnable
     {
         file.seek(pieceIdx * MMT.PieceSize);
         file.write(buffer, off, len);
+    }
+
+    /**
+     * Translate payload to bitfield
+     * @param payload payload (array of bytes)
+     * @return bitfield
+     */
+    private boolean[] makeBitfieldFromPayload(byte[] payload)
+    {
+        boolean[] bitfield = new boolean[thisPeer.NUM_OF_PIECES];
+        int byteIdx = 0;
+
+        for (int i = 0; i < bitfield.length; i++)
+        {
+            bitfield[i] = (payload[byteIdx] & (0x80 >> (i % 8))) != 0;
+
+            if ((i + 1) % 8 == 0) byteIdx++;
+        }
+        return bitfield;
     }
 
 }
