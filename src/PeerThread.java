@@ -62,7 +62,7 @@ public class PeerThread implements Runnable
                 byte[] payload = new byte[msgLen];
                 fromNeighbor.readFully(payload);
 
-                processReceivedMessage(msgType, payload);
+                processReceivedMessage(new Message(msgType, payload));
             }
 
         } catch (IOException e)
@@ -77,9 +77,17 @@ public class PeerThread implements Runnable
                 e1.printStackTrace();
                 System.err.println("Get: Cannot close socket");
             }
+        } catch (InterruptedException e)
+        {
+            e.printStackTrace();
         }
     }
 
+    /**
+     * Handshake procedure
+     * @return 0 if success, -1 otherwise
+     * @throws IOException
+     */
     private int handshake() throws IOException
     {
         if (initiator)
@@ -188,81 +196,82 @@ public class PeerThread implements Runnable
 
     /**
      * Process message
-     * @param msgType Type of msg
-     * @param rcvMsg Payload
+     * @param rcvMsg Message object of the received msg
      * @throws IOException
      */
-    private void processReceivedMessage(int msgType, byte[] rcvMsg) throws IOException
+    private void processReceivedMessage(Message rcvMsg) throws IOException, InterruptedException
     {
-        System.out.println("Get: Receive msg of type " + msgType + " from " + target.getPeerId());
-        switch (msgType)
+        System.out.println("Get: Receive msg of type " + rcvMsg.getType() + " from " + target.getPeerId());
+        switch (rcvMsg.getType())
         {
-            case Misc.TYPE_BITFIELD:
-                boolean[] seedBitfield = makeBitfieldFromPayload(rcvMsg);
+            case Message.TYPE_BITFIELD:
+                boolean[] seedBitfield = makeBitfieldFromPayload(rcvMsg.getPayload());
                 thisPeer.updateNeighborBitfield(target.getPeerId(), seedBitfield);
 
                 // if there exists an interesting piece, send INTERESTED
                 if (thisPeer.selectNewPieceFromNeighbor(target.getPeerId()) != -1)
-                    sendMessage(1, Misc.TYPE_INTERESTED, null);
+                    sendMessage(new Message(Message.TYPE_INTERESTED, null));
                 else
-                    sendMessage(1, Misc.TYPE_NOT_INTERESTED, null);
+                    sendMessage(new Message(Message.TYPE_NOT_INTERESTED, null));
                 break;
 
-            case Misc.TYPE_HAVE:
+            case Message.TYPE_HAVE:
                 //handle have
-                int index = Misc.byteArrayToInt(rcvMsg);
+                int index = Misc.byteArrayToInt(rcvMsg.getPayload());
                 boolean exist = thisPeer.checkPiece(index);
                 thisPeer.setNeighborBitfield(target.getPeerId(),index);
 
                 if (exist)
-                    sendMessage(1, Misc.TYPE_NOT_INTERESTED, null);
+                    sendMessage(new Message(Message.TYPE_NOT_INTERESTED, null));
                 else
-                    sendMessage(1, Misc.TYPE_INTERESTED, null);
+                    sendMessage(new Message(Message.TYPE_INTERESTED, null));
 
                 break;
 
-            case Misc.TYPE_UNCHOKE:
+            case Message.TYPE_UNCHOKE:
                 // send REQUEST
                 sendRequest();
                 break;
 
-            case Misc.TYPE_CHOKE:
+            case Message.TYPE_CHOKE:
                 break;
 
-            case Misc.TYPE_PIECE:
+            case Message.TYPE_PIECE:
                 // Write to file
-                int piece = ByteBuffer.wrap(rcvMsg, 0, 4).getInt();
-                writeToFile(piece, rcvMsg, 4, rcvMsg.length - 4);
+                byte[] payload = rcvMsg.getPayload();
+                int piece = ByteBuffer.wrap(payload, 0, 4).getInt();
+                writeToFile(piece, payload, 4, payload.length - 4);
 
                 sendRequest();
                 break;
 
-            case Misc.TYPE_REQUEST:
-                break;
-
-            case Misc.TYPE_NOT_INTERESTED:
-                break;
-
-            case Misc.TYPE_INTERESTED:
-                break;
+            default: // send to PeerSeed other messages
+                sendSeed(MsgPeerSeed.TYPE_MSG, rcvMsg);
         }
     }
 
     /**
-     * send message to socket
-     * @param length message length
-     * @param type message type
-     * @param payload payload
+     * Send message to socket
+     * @param msg Message object
+     * @throws IOException
      */
-    void sendMessage(int length, byte type, byte[] payload) throws IOException
+    void sendMessage(Message msg) throws IOException
     {
-        System.out.println("Sending message of type " + type + " with length " + length + " to " + target.getPeerId());
+        byte[] payload = msg.getPayload();
+        int length;
+
+        if (payload == null)
+            length = 1;
+        else
+            length = 1 + msg.getPayload().length;
+
+        System.out.println("Sending message of type " + msg.getType() + " with length " + length + " to " + target.getPeerId());
+
         synchronized (toNeighbor)
         {
             toNeighbor.writeInt(length);
-            toNeighbor.writeByte(type);
-            toNeighbor.write(payload, 0, length  - 1);
-//            toNeighbor.flush();
+            toNeighbor.writeByte(msg.getType());
+            toNeighbor.write(payload, 0, length - 1);
         }
     }
 
@@ -288,12 +297,12 @@ public class PeerThread implements Runnable
         if (pieceIdx == -1)
         {
             // send not interested
-            sendMessage(1, Misc.TYPE_NOT_INTERESTED, null);
+            sendMessage(new Message(Message.TYPE_NOT_INTERESTED, null));
             return;
         }
 
         // form request msg
-        sendMessage(Misc.LENGTH_REQUEST, Misc.TYPE_REQUEST, Misc.intToByteArray(pieceIdx));
+        sendMessage(new Message(Message.TYPE_REQUEST, Misc.intToByteArray(pieceIdx)));
         thisPeer.setHavePiece(pieceIdx); //TODO: handle the case when not receiving PIECE
     }
 

@@ -10,7 +10,7 @@ public class PeerSeed implements Runnable
     private final RandomAccessFile file;
     private final BlockingQueue<MsgPeerSeed> toSeed;
 
-    PeerSeed(Peer thisPeer, PeerThread peerThread, BlockingQueue toSeed) throws IOException
+    PeerSeed(Peer thisPeer, PeerThread peerThread, BlockingQueue<MsgPeerSeed> toSeed) throws IOException
     {
         this.thisPeer = thisPeer;
         this.peerThread = peerThread;
@@ -28,7 +28,7 @@ public class PeerSeed implements Runnable
             {
                 //send bitfield
                 byte[] bitfieldMsg = makeBitfieldMsg(thisPeer.getBitfield());
-                peerThread.sendMessage(bitfieldMsg.length + 1, Misc.TYPE_BITFIELD, bitfieldMsg);
+                peerThread.sendMessage(new Message(Message.TYPE_BITFIELD, bitfieldMsg));
             }
 
             //wait for new events
@@ -39,6 +39,8 @@ public class PeerSeed implements Runnable
                 switch (msg.getEventType())
                 {
                     case MsgPeerSeed.TYPE_MSG:
+                        Message rcvMsg = (Message)msg.getContent();
+                        processReceivedMessage(rcvMsg);
                         break;
 
                     case MsgPeerSeed.TYPE_NEW_PIECE:
@@ -70,31 +72,30 @@ public class PeerSeed implements Runnable
     {
         /* send message */
         byte[] payload = new byte[]{0,0,0,0};
-        peerThread.sendMessage(Misc.LENGTH_HAVE, Misc.TYPE_HAVE, payload);
+        peerThread.sendMessage(new Message(Message.TYPE_HAVE, payload));
     }
 
     /**
      * Process message
-     * @param msgType Type of msg
-     * @param rcvMsg Payload
+     * @param rcvMsg Message object of the received msg
      * @throws IOException
      */
-    private void processReceivedMessage(int msgType, byte[] rcvMsg) throws IOException
+    private void processReceivedMessage(Message rcvMsg) throws IOException
     {
-        switch (msgType)
+        switch (rcvMsg.getType())
         {
-            case Misc.TYPE_REQUEST:
-                int pieceIdx = Misc.byteArrayToInt(rcvMsg);
+            case Message.TYPE_REQUEST:
+                int pieceIdx = Misc.byteArrayToInt(rcvMsg.getPayload());
                 System.out.println("Seed: Piece requested: " + pieceIdx);
                 sendPiece(pieceIdx);
                 break;
 
-            case Misc.TYPE_INTERESTED:
+            case Message.TYPE_INTERESTED:
                 //TODO: NOTE only for testing REQUEST/PIECE
-                peerThread.sendMessage(1, Misc.TYPE_UNCHOKE, null);
+                peerThread.sendMessage(new Message(Message.TYPE_UNCHOKE, null));
                 break;
 
-            case Misc.TYPE_NOT_INTERESTED:
+            case Message.TYPE_NOT_INTERESTED:
                 break;
         }
     }
@@ -118,7 +119,7 @@ public class PeerSeed implements Runnable
         file.readFully(buffer, 4, offset); /* WARNING: flaws if offset is bigger than int */
 
         // Form PIECE msg
-        peerThread.sendMessage(1 + buffer.length, Misc.TYPE_PIECE, buffer);
+        peerThread.sendMessage(new Message(Message.TYPE_PIECE, buffer));
     }
 
     /**
