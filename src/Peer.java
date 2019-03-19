@@ -1,6 +1,7 @@
 import java.io.IOException;
-import java.net.ServerSocket;
+import java.net.ConnectException;
 import java.net.Socket;
+import java.net.UnknownHostException;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -78,13 +79,15 @@ public class Peer
         Thread serverListener = new Thread(new ServerListener(serverPort, this));
         serverListener.start();
 
-
         // Make connection to other peer
         for (PeerInfo target : peerList)
         {
             if (target.getPeerId() < peerId)
             {
-                new Thread(new PeerGet(this, target)).start();
+                Socket connectionSocket = makeConnection(target);
+                if (connectionSocket == null) continue;
+
+                new Thread(new PeerThread(this, target, connectionSocket, true)).start();
             }
         }
 
@@ -245,5 +248,38 @@ public class Peer
         {
             System.out.println("key: " + i + " value: " + Arrays.toString(neighborBitfield.get(i)));
         }
+    }
+
+    /**
+     * Make TCP connection
+     * @param target neighbor PeerInfo
+     * @return socket if successful, null otherwise
+     */
+    private Socket makeConnection(PeerInfo target)
+    {
+        try
+        {
+            System.out.println("Get: Make connection to " + target.getPeerId());
+
+            // make connection to target
+            Socket socket = new Socket(target.getHostname(), target.getPort());
+            System.out.println("Get: Connected to " + target.getPeerId() + " in port " + target.getPort());
+
+            return socket;
+        }
+        catch (ConnectException e)
+        {
+            System.err.println("Get: Connection refused. You need to initiate a server first.");
+        }
+        catch(UnknownHostException unknownHost)
+        {
+            System.err.println("Get: You are trying to connect to an unknown host!");
+        }
+        catch(IOException ioException)
+        {
+            ioException.printStackTrace();
+        }
+
+        return null;
     }
 }

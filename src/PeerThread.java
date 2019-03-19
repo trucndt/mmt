@@ -1,35 +1,28 @@
 import java.io.*;
-import java.net.ConnectException;
 import java.net.Socket;
-import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
-import java.util.concurrent.atomic.AtomicBoolean;
 
-public class PeerGet implements Runnable
+public class PeerThread implements Runnable
 {
     private final Peer thisPeer;
-    private final PeerInfo target;
-
+    private PeerInfo target;
     private Socket socket;
+    private boolean initiator;
 
-    private final DataOutputStream toSeed;
-    private final DataInputStream fromSeed;
-
-    public final AtomicBoolean finishHandshake;
+    private final DataOutputStream toNeighbor;
+    private final DataInputStream fromNeighbor;
 
     private final RandomAccessFile file;
 
-    PeerGet(Peer thisPeer, PeerInfo target) throws IOException
+    PeerThread(Peer thisPeer, PeerInfo target, Socket connectionSocket, boolean initiator) throws IOException
     {
         this.target = target;
         this.thisPeer = thisPeer;
+        this.socket = connectionSocket;
+        this.initiator = initiator;
 
-        makeConnection();
-
-        toSeed = new DataOutputStream(socket.getOutputStream());
-        fromSeed = new DataInputStream(new BufferedInputStream(socket.getInputStream()));
-
-        finishHandshake = new AtomicBoolean(false);
+        toNeighbor = new DataOutputStream(socket.getOutputStream());
+        fromNeighbor = new DataInputStream(new BufferedInputStream(socket.getInputStream()));
 
         file = new RandomAccessFile(thisPeer.FILE_PATH, "rw");
     }
@@ -39,16 +32,9 @@ public class PeerGet implements Runnable
     {
         try
         {
-            sendHandShake(toSeed);
-
-            // Notify other threads that it has finished handshake
-            synchronized (finishHandshake)
-            {
-                finishHandshake.set(true);
-                finishHandshake.notifyAll();
-            }
-
-            if (thisPeer.getHasFile() == 1)
+            // handshake message
+            int success = handshake();
+            if (success < 0)
             {
                 socket.close();
                 return;
@@ -58,14 +44,14 @@ public class PeerGet implements Runnable
             {
                 // wait for incoming messages
                 byte[] msgLenType = new byte[Misc.MESSAGE_LENGTH_LENGTH + 1];
-                fromSeed.readFully(msgLenType);
+                fromNeighbor.readFully(msgLenType);
 
                 int msgLen = ByteBuffer.wrap(msgLenType, 0, 4).getInt() - 1; // not including message type
                 byte msgType = msgLenType[4];
 
                 // receive payload
                 byte[] payload = new byte[msgLen];
-                fromSeed.readFully(payload);
+                fromNeighbor.readFully(payload);
 
                 processReceivedMessage(msgType, payload);
             }
@@ -85,45 +71,110 @@ public class PeerGet implements Runnable
         }
     }
 
-    private void makeConnection()
+    private int handshake() throws IOException
     {
-        try
+        if (initiator)
         {
-            System.out.println("Get: Make connection to " + target.getPeerId());
+            sendHandShake();
+            int targetId = receiveHandShake2();
 
-            // make connection to target
-            socket = new Socket(target.getHostname(), target.getPort());
-            System.out.println("Get: Connected to " + target.getPeerId() + " in port " + target.getPort());
+            if (targetId < 0)
+            {
+                socket.close();
+                return -1;
+            }
         }
-        catch (ConnectException e)
+        else
         {
-            System.err.println("Get: Connection refused. You need to initiate a server first.");
+            int targetId = receiveHandShake();
+            if (targetId < 0)
+            {
+                socket.close();
+                return -1;
+            }
+
+            // find peer id and assign target
+            for (PeerInfo p: thisPeer.getPeerList())
+            {
+                if (p.getPeerId() == targetId)
+                {
+                    target = p;
+                    break;
+                }
+            }
+
+            sendHandShake();
         }
-        catch(UnknownHostException unknownHost)
-        {
-            System.err.println("Get: You are trying to connect to an unknown host!");
-        }
-        catch(IOException ioException)
-        {
-            ioException.printStackTrace();
-        }
+
+        return 0;
     }
 
-    private void sendHandShake(DataOutputStream toSeed)
+    /**
+     * Send handshake message to target
+     */
+    private void sendHandShake()
     {
         /* send message */
         try
         {
             String messageOut = "P2PFILESHARINGPROJ" + "0000000000" + thisPeer.getPeerId();
 
-            toSeed.write(messageOut.getBytes());
-            toSeed.flush();
+            toNeighbor.write(messageOut.getBytes());
+            toNeighbor.flush();
             System.out.println("Get: Send Handshake Message: { " + messageOut + " } to Client " + target.getPeerId());
         }
         catch (IOException ioException)
         {
             ioException.printStackTrace();
         }
+    }
+
+    /**
+     * Non-initiator waits for handshake msg
+     * @return target peer Id, -1 if failed
+     * @throws IOException
+     */
+    private int receiveHandShake() throws IOException
+    {
+        byte[] buffer = new byte[Misc.LENGTH_HANDSHAKE];
+        fromNeighbor.readFully(buffer);
+
+        String rcvMsg = new String(buffer);
+        System.out.println("Get: Receive msg " + rcvMsg);
+
+        /* check handshake message */
+        if (!rcvMsg.substring(0, 18).equals("P2PFILESHARINGPROJ"))
+        {
+            System.out.println("Get: Wrong handshake");
+            return -1;
+        }
+
+        return Integer.parseInt(rcvMsg.substring(28, 32));
+    }
+
+    /**
+     * Initiator waits for handshake msg
+     * @return target peer Id, -1 if failed
+     * @throws IOException
+     */
+    private int receiveHandShake2() throws IOException
+    {
+        byte[] buffer = new byte[Misc.LENGTH_HANDSHAKE];
+        fromNeighbor.readFully(buffer);
+
+        String rcvMsg = new String(buffer);
+        System.out.println("Get: Receive msg " + rcvMsg);
+
+        int peerId = Integer.parseInt(rcvMsg.substring(28,32));
+
+        /* check handshake message */
+        if (!rcvMsg.substring(0, 18).equals("P2PFILESHARINGPROJ") || peerId != target.getPeerId())
+        {
+            System.out.println("Get: Wrong handshake");
+            return -1;
+        }
+
+        return peerId;
     }
 
     /**
@@ -186,10 +237,10 @@ public class PeerGet implements Runnable
     private void sendMessage(int length, byte type, byte[] payload) throws IOException
     {
         System.out.println("Get: Sending message of type " + type + " with length " + length + " to " + target.getPeerId());
-        toSeed.writeInt(length);
-        toSeed.writeByte(type);
-        toSeed.write(payload, 0, length  - 1);
-        toSeed.flush();
+        toNeighbor.writeInt(length);
+        toNeighbor.writeByte(type);
+        toNeighbor.write(payload, 0, length  - 1);
+        toNeighbor.flush();
     }
 
     /**

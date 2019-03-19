@@ -31,23 +31,23 @@ public class PeerSeed implements Runnable
     {
         try
         {
-            int targetId = receiveHandShake(fromGet);
-            if (targetId < 0) return;
-
-            for (PeerInfo p: thisPeer.getPeerList())
-            {
-                if (p.getPeerId() == targetId)
-                {
-                    target = p;
-                    break;
-                }
-            }
-
-            // Finish handshake, make a PeerGet to the target
-            if (targetId > thisPeer.getPeerId())
-            {
-                createPeerGet();
-            }
+//            int targetId = receiveHandShake(fromGet);
+//            if (targetId < 0) return;
+//
+//            for (PeerInfo p: thisPeer.getPeerList())
+//            {
+//                if (p.getPeerId() == targetId)
+//                {
+//                    target = p;
+//                    break;
+//                }
+//            }
+//
+//            // Finish handshake, make a PeerThread to the target
+//            if (targetId > thisPeer.getPeerId())
+//            {
+//                createPeerGet();
+//            }
 
             if (thisPeer.getHasFile() == 1)
             {
@@ -82,30 +82,10 @@ public class PeerSeed implements Runnable
                 e1.printStackTrace();
                 System.err.println("Seed: Cannot close socket");
             }
-        } catch (InterruptedException e)
-        {
-            e.printStackTrace();
         }
     }
 
-    private int receiveHandShake(DataInputStream fromGet) throws IOException
-    {
-        byte[] buffer = new byte[Misc.LENGTH_HANDSHAKE];
-        fromGet.readFully(buffer);
 
-        String rcvMsg = new String(buffer);
-        System.out.println("Seed: Receive msg " + rcvMsg);
-
-        /* check handshake message */
-        if (!rcvMsg.substring(0, 18).equals("P2PFILESHARINGPROJ"))
-        {
-            System.out.println("Seed: Wrong handshake");
-            return -1;
-        }
-
-        return Integer.parseInt(rcvMsg.substring(28, 32));
-
-    }
 
     /**
      * send message to socket
@@ -120,26 +100,6 @@ public class PeerSeed implements Runnable
         toGet.writeByte(type);
         toGet.write(payload, 0, length  - 1);
         toGet.flush();
-    }
-
-    /**
-     * Create a PeerGet thread and wait until it finished handshake
-     * @throws IOException
-     * @throws InterruptedException
-     */
-    private void createPeerGet() throws IOException, InterruptedException
-    {
-        PeerGet peerGet = new PeerGet(thisPeer, target);
-        new Thread(peerGet).start();
-
-        // wait until peerGet finish handshake
-        synchronized (peerGet.finishHandshake)
-        {
-            while (!peerGet.finishHandshake.get())
-            {
-                peerGet.finishHandshake.wait();
-            }
-        }
     }
 
     private void sendHave() throws IOException
