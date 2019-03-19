@@ -17,6 +17,8 @@ public class Peer
     private final AtomicInteger optimistUnchoke;
     private final Map<Integer, boolean[]> neighborBitfield;
 
+    private final LinkedList<PeerThread> peerThreads = new LinkedList<>();
+
     public final String FILE_PATH;
     public final int NUM_OF_PIECES;
 
@@ -87,7 +89,10 @@ public class Peer
                 Socket connectionSocket = makeConnection(target);
                 if (connectionSocket == null) continue;
 
-                new Thread(new PeerThread(this, target, connectionSocket, true)).start();
+                PeerThread peerThread = new PeerThread(this, target, connectionSocket, true);
+                new Thread(peerThread).start();
+
+                peerThreads.add(peerThread);
             }
         }
 
@@ -260,6 +265,7 @@ public class Peer
         try
         {
             System.out.println("Get: Make connection to " + target.getPeerId());
+            Log.println("Peer " + peerId + " makes a connection to Peer " + target.getPeerId());
 
             // make connection to target
             Socket socket = new Socket(target.getHostname(), target.getPort());

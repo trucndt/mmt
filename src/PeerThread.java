@@ -115,6 +115,8 @@ public class PeerThread implements Runnable
                 }
             }
 
+            Log.println("Peer " + thisPeer.getPeerId() + " is connected from Peer " + targetId);
+
             sendHandShake();
         }
 

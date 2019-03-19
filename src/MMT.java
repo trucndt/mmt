@@ -38,6 +38,8 @@ public class MMT
         }
 
         createPeerDir(peerId);
+        Log.initialization(peerId);
+        new Thread(new Log()).start();
 
         readCommonCfg();
 //        printCommonCfg();
