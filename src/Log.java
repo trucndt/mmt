@@ -29,7 +29,7 @@ public class Log implements Runnable
      *
      * @param logIn
      */
-    public synchronized static void println(String logIn)
+    public static void println(String logIn)
     {
         try
         {

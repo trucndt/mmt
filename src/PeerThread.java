@@ -300,7 +300,7 @@ public class PeerThread implements Runnable
 
         // form request msg
         sendMessage(new Message(Message.TYPE_REQUEST, Misc.intToByteArray(pieceIdx)));
-        thisPeer.setHavePiece(pieceIdx); //TODO: handle the case when not receiving PIECE
+        thisPeer.setBitfield(pieceIdx, (byte)2); //TODO: handle the case when not receiving PIECE
     }
 
     /**

@@ -12,7 +12,7 @@ public class Peer
     private int serverPort;
     private int hasFile;
 
-    private final boolean[] bitfield;
+    private final byte[] bitfield; // yes=1, no=0, requested=2
     private final Set<Integer> preferredNeighbor;
     private final AtomicInteger optimistUnchoke;
     private final Map<Integer, boolean[]> neighborBitfield;
@@ -40,17 +40,17 @@ public class Peer
 
         /* Initialize bitfield */
         NUM_OF_PIECES = (int)Math.ceil(MMT.FileSize*1.0/MMT.PieceSize);
-        bitfield = new boolean[NUM_OF_PIECES];
+        bitfield = new byte[NUM_OF_PIECES];
 
         if (hasFile == 1)
         {
             for (int i = 0; i < NUM_OF_PIECES; i++)
-                bitfield[i] = true;
+                bitfield[i] = 1;
         }
         else
         {
             for (int i = 0; i < NUM_OF_PIECES; i++)
-                bitfield[i] = false;
+                bitfield[i] = 0;
         }
 
         /* Initialize neighbor bitfield*/
@@ -111,8 +111,8 @@ public class Peer
             while (true)
             {
                 boolean full = true;
-                for (boolean b : bitfield)
-                    if (!b)
+                for (byte b : bitfield)
+                    if (b == 0)
                     {
                         full = false;
                         break;
@@ -164,24 +164,37 @@ public class Peer
         this.hasFile = hasFile;
     }
 
+    /**
+     * Check if we already have a piece
+     * @param idx index of piece
+     * @return true if already have, false otherwise
+     */
     public boolean checkPiece(int idx)
     {
         synchronized (bitfield)
         {
-            return bitfield[idx];
+            return bitfield[idx] == 1;
         }
     }
 
-    public void setHavePiece(int idx)
+    /**
+     * Set a value in bitfield
+     * @param idx index of piece
+     * @param val value
+     */
+    public void setBitfield(int idx, byte val)
     {
         synchronized (bitfield)
         {
-            bitfield[idx] = true;
-            bitfield.notifyAll();
+            bitfield[idx] = val;
+            if (val == 1)
+            {
+                bitfield.notifyAll();
+            }
         }
     }
 
-    public boolean[] getBitfield()
+    public byte[] getBitfield()
     {
         synchronized (bitfield)
         {
@@ -217,12 +230,15 @@ public class Peer
     {
         synchronized (bitfield)
         {
-            synchronized (neighborBitfield)
+            for (int i = 0; i < bitfield.length; i++)
             {
-                for (int i = 0; i < bitfield.length; i++)
+                if (bitfield[i] == 0)
                 {
-                    if (!bitfield[i] && neighborBitfield.get(neighborId)[i])
-                        return i;
+                    synchronized (neighborBitfield)
+                    {
+                        if (neighborBitfield.get(neighborId)[i])
+                            return i;
+                    }
                 }
             }
         }

@@ -127,7 +127,7 @@ public class PeerSeed implements Runnable
      * @param bitfield bitfield
      * @return bitfield payload
      */
-    private byte[] makeBitfieldMsg(boolean[] bitfield)
+    private byte[] makeBitfieldMsg(byte[] bitfield)
     {
         byte[] data = new byte[(int)Math.ceil(bitfield.length*1.0/8)];
         Arrays.fill(data, (byte) 0);
@@ -135,7 +135,7 @@ public class PeerSeed implements Runnable
         int byteIdx = 0;
         for (int i = 0; i < bitfield.length ; i++)
         {
-            if (bitfield[i])
+            if (bitfield[i] == 1)
                 data[byteIdx] |= 0x80 >> (i % 8);
 
             if ((i + 1) % 8 == 0) byteIdx++;

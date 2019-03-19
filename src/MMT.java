@@ -42,11 +42,7 @@ public class MMT
         new Thread(new Log()).start();
 
         readCommonCfg();
-//        printCommonCfg();
         List<PeerInfo> peerList = readPeerCfg();
-
-//        for (PeerInfo p : peerList)
-//            p.printInfo();
 
         Peer peer = new Peer(peerId, peerList);
         peer.start();
