@@ -16,7 +16,7 @@ public class PeerSeed implements Runnable
         this.peerThread = peerThread;
         this.toSeed = toSeed;
 
-        file = new RandomAccessFile(thisPeer.FILE_PATH, "r");
+        file = new RandomAccessFile(thisPeer.FILE_PATH, "rw");
     }
 
     @Override

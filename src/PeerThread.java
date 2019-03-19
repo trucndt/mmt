@@ -2,7 +2,6 @@ import java.io.*;
 import java.net.Socket;
 import java.nio.ByteBuffer;
 import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.LinkedBlockingQueue;
 
 public class PeerThread implements Runnable
@@ -14,8 +13,6 @@ public class PeerThread implements Runnable
 
     private final DataOutputStream toNeighbor;
     private final DataInputStream fromNeighbor;
-
-    private final RandomAccessFile file;
 
     private final BlockingQueue<MsgPeerSeed> toSeed;
 
@@ -29,7 +26,6 @@ public class PeerThread implements Runnable
         toNeighbor = new DataOutputStream(socket.getOutputStream());
         fromNeighbor = new DataInputStream(new BufferedInputStream(socket.getInputStream()));
 
-        file = new RandomAccessFile(thisPeer.FILE_PATH, "rw");
         toSeed = new LinkedBlockingQueue<>();
     }
 
@@ -71,7 +67,6 @@ public class PeerThread implements Runnable
             try
             {
                 socket.close();
-                file.close();
             } catch (IOException e1)
             {
                 e1.printStackTrace();
@@ -240,7 +235,7 @@ public class PeerThread implements Runnable
                 // Write to file
                 byte[] payload = rcvMsg.getPayload();
                 int piece = ByteBuffer.wrap(payload, 0, 4).getInt();
-                writeToFile(piece, payload, 4, payload.length - 4);
+                new WriteFileThread(thisPeer.FILE_PATH, piece, payload, 4, payload.length - 4);
 
                 sendRequest();
                 break;
@@ -304,20 +299,6 @@ public class PeerThread implements Runnable
         // form request msg
         sendMessage(new Message(Message.TYPE_REQUEST, Misc.intToByteArray(pieceIdx)));
         thisPeer.setHavePiece(pieceIdx); //TODO: handle the case when not receiving PIECE
-    }
-
-    /**
-     * Write piece to file
-     * @param pieceIdx index of piece
-     * @param buffer content
-     * @param off the start offset
-     * @param len number of bytes to write
-     * @throws IOException
-     */
-    private void writeToFile(int pieceIdx, byte[] buffer, int off, int len) throws IOException
-    {
-        file.seek(pieceIdx * MMT.PieceSize);
-        file.write(buffer, off, len);
     }
 
     /**
