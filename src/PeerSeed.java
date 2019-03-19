@@ -1,27 +1,20 @@
 import java.io.*;
-import java.net.Socket;
-import java.nio.ByteBuffer;
 import java.util.Arrays;
+import java.util.concurrent.BlockingQueue;
 
 public class PeerSeed implements Runnable
 {
-    private final Socket socket;
     private final Peer thisPeer;
-
-    private PeerInfo target;
-
-    private final DataInputStream fromGet;
-    private final DataOutputStream toGet;
+    private final PeerThread peerThread;
 
     private final RandomAccessFile file;
+    private final BlockingQueue<MsgPeerSeed> toSeed;
 
-    PeerSeed(Socket connectionSocket, Peer thisPeer) throws IOException
+    PeerSeed(Peer thisPeer, PeerThread peerThread, BlockingQueue toSeed) throws IOException
     {
-        this.socket = connectionSocket;
         this.thisPeer = thisPeer;
-
-        fromGet = new DataInputStream(new BufferedInputStream(socket.getInputStream()));
-        toGet = new DataOutputStream(socket.getOutputStream());
+        this.peerThread = peerThread;
+        this.toSeed = toSeed;
 
         file = new RandomAccessFile(thisPeer.FILE_PATH, "r");
     }
@@ -31,101 +24,53 @@ public class PeerSeed implements Runnable
     {
         try
         {
-//            int targetId = receiveHandShake(fromGet);
-//            if (targetId < 0) return;
-//
-//            for (PeerInfo p: thisPeer.getPeerList())
-//            {
-//                if (p.getPeerId() == targetId)
-//                {
-//                    target = p;
-//                    break;
-//                }
-//            }
-//
-//            // Finish handshake, make a PeerThread to the target
-//            if (targetId > thisPeer.getPeerId())
-//            {
-//                createPeerGet();
-//            }
-
             if (thisPeer.getHasFile() == 1)
             {
                 //send bitfield
                 byte[] bitfieldMsg = makeBitfieldMsg(thisPeer.getBitfield());
-                sendMessage(bitfieldMsg.length + 1, Misc.TYPE_BITFIELD, bitfieldMsg);
-
-                //wait for interested
-                waitForIncomingMessage();
+                peerThread.sendMessage(bitfieldMsg.length + 1, Misc.TYPE_BITFIELD, bitfieldMsg);
             }
 
-            // NOTE only for testing REQUEST/PIECE
-//            sendMessage(1, Misc.TYPE_UNCHOKE, null);
+            //wait for new events
             while (true)
             {
-                waitForIncomingMessage();
+                MsgPeerSeed msg = toSeed.take();
+
+                switch (msg.getEventType())
+                {
+                    case MsgPeerSeed.TYPE_MSG:
+                        break;
+
+                    case MsgPeerSeed.TYPE_NEW_PIECE:
+                        sendHave();
+                        break;
+                }
             }
 
-            //TODO wait for having new pieces
-
-            //NOTE only for testing the HAVE message
-//            sendHave();
         } catch (IOException e)
         {
             e.printStackTrace();
             try
             {
-                socket.close();
                 file.close();
             } catch (IOException e1)
             {
                 e1.printStackTrace();
                 System.err.println("Seed: Cannot close socket");
             }
+        } catch (InterruptedException e)
+        {
+            e.printStackTrace();
         }
     }
 
 
 
-    /**
-     * send message to socket
-     * @param length message length
-     * @param type message type
-     * @param payload payload
-     */
-    private void sendMessage(int length, byte type, byte[] payload) throws IOException
-    {
-        System.out.println("Seed: Sending message of type " + type + " with length " + length + " to " + target.getPeerId());
-        toGet.writeInt(length);
-        toGet.writeByte(type);
-        toGet.write(payload, 0, length  - 1);
-        toGet.flush();
-    }
-
     private void sendHave() throws IOException
     {
         /* send message */
         byte[] payload = new byte[]{0,0,0,0};
-        sendMessage(Misc.LENGTH_HAVE, Misc.TYPE_HAVE, payload);
-    }
-
-    /**
-     * Wait on socket until a new message arrives
-     * @throws IOException
-     */
-    private void waitForIncomingMessage() throws IOException
-    {
-        byte[] msgLenType = new byte[Misc.MESSAGE_LENGTH_LENGTH + 1];
-        fromGet.readFully(msgLenType);
-
-        int msgLen = ByteBuffer.wrap(msgLenType, 0, 4).getInt() - 1; // not including message type
-        byte msgType = msgLenType[4];
-
-        // receive payload
-        byte[] payload = new byte[msgLen];
-        fromGet.readFully(payload);
-
-        processReceivedMessage(msgType, payload);
+        peerThread.sendMessage(Misc.LENGTH_HAVE, Misc.TYPE_HAVE, payload);
     }
 
     /**
@@ -136,8 +81,6 @@ public class PeerSeed implements Runnable
      */
     private void processReceivedMessage(int msgType, byte[] rcvMsg) throws IOException
     {
-        System.out.println("Seed: Receive msg of type " + msgType + " from " + target.getPeerId());
-
         switch (msgType)
         {
             case Misc.TYPE_REQUEST:
@@ -148,7 +91,7 @@ public class PeerSeed implements Runnable
 
             case Misc.TYPE_INTERESTED:
                 //TODO: NOTE only for testing REQUEST/PIECE
-                sendMessage(1, Misc.TYPE_UNCHOKE, null);
+                peerThread.sendMessage(1, Misc.TYPE_UNCHOKE, null);
                 break;
 
             case Misc.TYPE_NOT_INTERESTED:
@@ -175,7 +118,7 @@ public class PeerSeed implements Runnable
         file.readFully(buffer, 4, offset); /* WARNING: flaws if offset is bigger than int */
 
         // Form PIECE msg
-        sendMessage(1 + buffer.length, Misc.TYPE_PIECE, buffer);
+        peerThread.sendMessage(1 + buffer.length, Misc.TYPE_PIECE, buffer);
     }
 
     /**

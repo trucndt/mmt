@@ -1,6 +1,9 @@
 import java.io.*;
 import java.net.Socket;
 import java.nio.ByteBuffer;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingDeque;
+import java.util.concurrent.LinkedBlockingQueue;
 
 public class PeerThread implements Runnable
 {
@@ -14,6 +17,8 @@ public class PeerThread implements Runnable
 
     private final RandomAccessFile file;
 
+    private final BlockingQueue<MsgPeerSeed> toSeed;
+
     PeerThread(Peer thisPeer, PeerInfo target, Socket connectionSocket, boolean initiator) throws IOException
     {
         this.target = target;
@@ -25,6 +30,7 @@ public class PeerThread implements Runnable
         fromNeighbor = new DataInputStream(new BufferedInputStream(socket.getInputStream()));
 
         file = new RandomAccessFile(thisPeer.FILE_PATH, "rw");
+        toSeed = new LinkedBlockingQueue<>();
     }
 
     @Override
@@ -39,6 +45,9 @@ public class PeerThread implements Runnable
                 socket.close();
                 return;
             }
+
+            // Create PeerSeed
+            new Thread(new PeerSeed(thisPeer, this, toSeed)).start();
 
             while (true)
             {
@@ -217,6 +226,9 @@ public class PeerThread implements Runnable
                 sendRequest();
                 break;
 
+            case Misc.TYPE_CHOKE:
+                break;
+
             case Misc.TYPE_PIECE:
                 // Write to file
                 int piece = ByteBuffer.wrap(rcvMsg, 0, 4).getInt();
@@ -225,6 +237,14 @@ public class PeerThread implements Runnable
                 sendRequest();
                 break;
 
+            case Misc.TYPE_REQUEST:
+                break;
+
+            case Misc.TYPE_NOT_INTERESTED:
+                break;
+
+            case Misc.TYPE_INTERESTED:
+                break;
         }
     }
 
@@ -234,13 +254,28 @@ public class PeerThread implements Runnable
      * @param type message type
      * @param payload payload
      */
-    private void sendMessage(int length, byte type, byte[] payload) throws IOException
+    void sendMessage(int length, byte type, byte[] payload) throws IOException
     {
-        System.out.println("Get: Sending message of type " + type + " with length " + length + " to " + target.getPeerId());
-        toNeighbor.writeInt(length);
-        toNeighbor.writeByte(type);
-        toNeighbor.write(payload, 0, length  - 1);
-        toNeighbor.flush();
+        System.out.println("Sending message of type " + type + " with length " + length + " to " + target.getPeerId());
+        synchronized (toNeighbor)
+        {
+            toNeighbor.writeInt(length);
+            toNeighbor.writeByte(type);
+            toNeighbor.write(payload, 0, length  - 1);
+//            toNeighbor.flush();
+        }
+    }
+
+    /**
+     * Send a msg to PeerSeed
+     * @param type type of MsgPeerSeed
+     * @param content object to send
+     * @throws InterruptedException
+     */
+    void sendSeed(byte type, Object content) throws InterruptedException
+    {
+        MsgPeerSeed msg = new MsgPeerSeed(type, content);
+        toSeed.put(msg);
     }
 
     /**

@@ -1,0 +1,24 @@
+public class MsgPeerSeed
+{
+    static final byte TYPE_MSG = 0;
+    static final byte TYPE_NEW_PIECE = 1;
+
+    private final byte eventType;
+    private final Object content;
+
+    public MsgPeerSeed(byte eventType, Object content)
+    {
+        this.eventType = eventType;
+        this.content = content;
+    }
+
+    public byte getEventType()
+    {
+        return eventType;
+    }
+
+    public Object getContent()
+    {
+        return content;
+    }
+}
