@@ -53,16 +53,23 @@ public class Log implements Runnable
     @Override
     public void run()
     {
-        while (true)
+        try
         {
-            try
+            while (true)
             {
                 String logIn = queue.take();
                 file.write("[" + getCurrentTime() + "]: " + logIn + "\n");
                 file.flush();
-            } catch (InterruptedException | IOException e)
+            }
+        } catch (InterruptedException | IOException e)
+        {
+            e.printStackTrace();
+            try
             {
-                e.printStackTrace();
+                file.close();
+            } catch (IOException e1)
+            {
+                e1.printStackTrace();
             }
         }
     }

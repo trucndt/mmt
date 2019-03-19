@@ -24,12 +24,9 @@ public class PeerSeed implements Runnable
     {
         try
         {
-            if (thisPeer.getHasFile() == 1)
-            {
-                //send bitfield
-                byte[] bitfieldMsg = makeBitfieldMsg(thisPeer.getBitfield());
-                peerThread.sendMessage(new Message(Message.TYPE_BITFIELD, bitfieldMsg));
-            }
+            //send bitfield
+            byte[] bitfieldMsg = makeBitfieldMsg(thisPeer.getBitfield());
+            peerThread.sendMessage(new Message(Message.TYPE_BITFIELD, bitfieldMsg));
 
             //wait for new events
             while (true)
@@ -44,7 +41,7 @@ public class PeerSeed implements Runnable
                         break;
 
                     case MsgPeerSeed.TYPE_NEW_PIECE:
-                        sendHave();
+                        sendHave((int)msg.getContent());
                         break;
                 }
             }
@@ -68,10 +65,10 @@ public class PeerSeed implements Runnable
 
 
 
-    private void sendHave() throws IOException
+    private void sendHave(int idx) throws IOException
     {
         /* send message */
-        byte[] payload = new byte[]{0,0,0,0};
+        byte[] payload = Misc.intToByteArray(idx);
         peerThread.sendMessage(new Message(Message.TYPE_HAVE, payload));
     }
 
@@ -143,5 +140,4 @@ public class PeerSeed implements Runnable
 
         return data;
     }
-
 }

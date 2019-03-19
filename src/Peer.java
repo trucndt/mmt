@@ -4,6 +4,8 @@ import java.net.Socket;
 import java.net.UnknownHostException;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public class Peer
 {
@@ -18,6 +20,7 @@ public class Peer
     private final Map<Integer, boolean[]> neighborBitfield;
 
     private final LinkedList<PeerThread> peerThreads = new LinkedList<>();
+    private final ReadWriteLock lockPeerThreads = new ReentrantReadWriteLock();
 
     public final String FILE_PATH;
     public final int NUM_OF_PIECES;
@@ -78,8 +81,8 @@ public class Peer
 
     void start() throws InterruptedException, IOException
     {
-        Thread serverListener = new Thread(new ServerListener(serverPort, this));
-        serverListener.start();
+        ServerListener serverListener = new ServerListener(serverPort, this);
+        new Thread(serverListener).start();
 
         // Make connection to other peer
         for (PeerInfo target : peerList)
@@ -92,7 +95,7 @@ public class Peer
                 PeerThread peerThread = new PeerThread(this, target, connectionSocket, true);
                 new Thread(peerThread).start();
 
-                peerThreads.add(peerThread);
+                addPeerThread(peerThread);
             }
         }
 
@@ -102,6 +105,12 @@ public class Peer
         }
 
         waitUntilNeighborBitfieldFull();
+
+        // close all sockets
+        serverListener.closeSocket();
+        lockPeerThreads.readLock().lock();
+        for (PeerThread p : peerThreads) p.closeSocket();
+        lockPeerThreads.readLock().unlock();
     }
 
     private void waitUntilBitfieldFull() throws InterruptedException
@@ -187,10 +196,18 @@ public class Peer
         synchronized (bitfield)
         {
             bitfield[idx] = val;
-            if (val == 1)
+            if (val == 1) bitfield.notifyAll();
+        }
+
+        if (val == 1)
+        {
+            // notify all PeerSeed
+            lockPeerThreads.readLock().lock();
+            for (PeerThread p : peerThreads)
             {
-                bitfield.notifyAll();
+                p.sendSeed(MsgPeerSeed.TYPE_NEW_PIECE, idx);
             }
+            lockPeerThreads.readLock().unlock();
         }
     }
 
@@ -213,11 +230,12 @@ public class Peer
      * @param neighborId peer ID of neighbor
      * @param bf bitfield
      */
-    public void updateNeighborBitfield(int neighborId, boolean[] bf)
+    public void setNeighborBitfield(int neighborId, boolean[] bf)
     {
         synchronized (neighborBitfield)
         {
             neighborBitfield.put(neighborId, bf);
+            neighborBitfield.notifyAll();
         }
     }
 
@@ -237,7 +255,10 @@ public class Peer
                     synchronized (neighborBitfield)
                     {
                         if (neighborBitfield.get(neighborId)[i])
+                        {
+                            bitfield[i] = 2;
                             return i;
+                        }
                     }
                 }
             }
@@ -303,5 +324,16 @@ public class Peer
         }
 
         return null;
+    }
+
+    /**
+     * Add a PeerThread object to list of PeerThreads
+     * @param pt PeerThread object
+     */
+    public void addPeerThread(PeerThread pt)
+    {
+        lockPeerThreads.writeLock().lock();
+        peerThreads.add(pt);
+        lockPeerThreads.writeLock().unlock();
     }
 }

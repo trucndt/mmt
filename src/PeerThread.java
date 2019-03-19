@@ -74,6 +74,14 @@ public class PeerThread implements Runnable
             }
         } catch (InterruptedException e)
         {
+            try
+            {
+                socket.close();
+            } catch (IOException e1)
+            {
+                e1.printStackTrace();
+                System.err.println("Get: Cannot close socket");
+            }
             e.printStackTrace();
         }
     }
@@ -203,7 +211,7 @@ public class PeerThread implements Runnable
         {
             case Message.TYPE_BITFIELD:
                 boolean[] seedBitfield = makeBitfieldFromPayload(rcvMsg.getPayload());
-                thisPeer.updateNeighborBitfield(target.getPeerId(), seedBitfield);
+                thisPeer.setNeighborBitfield(target.getPeerId(), seedBitfield);
 
                 // if there exists an interesting piece, send INTERESTED
                 if (thisPeer.selectNewPieceFromNeighbor(target.getPeerId()) != -1)
@@ -238,6 +246,7 @@ public class PeerThread implements Runnable
                 byte[] payload = rcvMsg.getPayload();
                 int piece = ByteBuffer.wrap(payload, 0, 4).getInt();
                 new WriteFileThread(thisPeer.FILE_PATH, piece, payload, 4, payload.length - 4);
+                thisPeer.setBitfield(piece, (byte)1);
 
                 sendRequest();
                 break;
@@ -278,10 +287,16 @@ public class PeerThread implements Runnable
      * @param content object to send
      * @throws InterruptedException
      */
-    void sendSeed(byte type, Object content) throws InterruptedException
+    void sendSeed(byte type, Object content)
     {
         MsgPeerSeed msg = new MsgPeerSeed(type, content);
-        toSeed.put(msg);
+        try
+        {
+            toSeed.put(msg);
+        } catch (InterruptedException e)
+        {
+            e.printStackTrace();
+        }
     }
 
     /**
@@ -300,7 +315,7 @@ public class PeerThread implements Runnable
 
         // form request msg
         sendMessage(new Message(Message.TYPE_REQUEST, Misc.intToByteArray(pieceIdx)));
-        thisPeer.setBitfield(pieceIdx, (byte)2); //TODO: handle the case when not receiving PIECE
+//        thisPeer.setBitfield(pieceIdx, (byte)2); //TODO: handle the case when not receiving PIECE
     }
 
     /**
@@ -320,6 +335,11 @@ public class PeerThread implements Runnable
             if ((i + 1) % 8 == 0) byteIdx++;
         }
         return bitfield;
+    }
+
+    public void closeSocket() throws IOException
+    {
+        socket.close();
     }
 
 }

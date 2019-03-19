@@ -29,7 +29,10 @@ public class ServerListener implements Runnable
                 Socket connectionSocket = welcomeSocket.accept();
                 System.out.println("new connection");
 
-                new Thread(new PeerThread(thisPeer, null, connectionSocket, false)).start();
+                PeerThread peerThread = new PeerThread(thisPeer, null, connectionSocket, false);
+                new Thread(peerThread).start();
+
+                thisPeer.addPeerThread(peerThread);
             }
         }
         catch (IOException e)
@@ -37,4 +40,10 @@ public class ServerListener implements Runnable
             e.printStackTrace();
         }
     }
+
+    public void closeSocket() throws IOException
+    {
+        welcomeSocket.close();
+    }
+
 }

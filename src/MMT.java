@@ -46,6 +46,10 @@ public class MMT
 
         Peer peer = new Peer(peerId, peerList);
         peer.start();
+
+        // stop remaining threads
+        for (Thread t : Thread.getAllStackTraces().keySet())
+            t.interrupt();
     }
 
     /**
