@@ -26,4 +26,18 @@ public class Misc
     {
         return ByteBuffer.allocate(4).putInt(num).array();
     }
+
+    /**
+     * Count the number of pieces one has
+     * @param bitfield bitfield
+     * @return number of pieces
+     */
+    public static int countPieces(byte[] bitfield)
+    {
+        int cnt = 0;
+        for (byte b : bitfield)
+            if (b == 1) cnt++;
+
+        return cnt;
+    }
 }

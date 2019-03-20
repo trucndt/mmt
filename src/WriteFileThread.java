@@ -12,6 +12,7 @@ public class WriteFileThread implements Runnable
     private final int length;
     private final byte[] buffer;
     private final Peer thisPeer;
+    private final PeerThread peerThread;
 
     /**
      * Start a thread to write piece to file, then set the corresponding bitfield
@@ -21,8 +22,10 @@ public class WriteFileThread implements Runnable
      * @param offset the start offset in the data
      * @param length number of bytes to write
      * @param thisPeer reference to Peer object
+     * @param peerThread reference to PeerThread
      */
-    public WriteFileThread(String filePath, int pieceIdx, byte[] buffer, int offset, int length, Peer thisPeer)
+    public WriteFileThread(String filePath, int pieceIdx, byte[] buffer, int offset, int length, Peer thisPeer,
+                           PeerThread peerThread)
     {
         this.filePath = filePath;
         this.pieceIdx = pieceIdx;
@@ -30,6 +33,7 @@ public class WriteFileThread implements Runnable
         this.length = length;
         this.buffer = buffer;
         this.thisPeer = thisPeer;
+        this.peerThread = peerThread;
 
         synchronized (numThreads)
         {
@@ -58,7 +62,10 @@ public class WriteFileThread implements Runnable
             file.seek(pieceIdx * MMT.PieceSize);
             file.write(buffer, offset, length);
             file.close();
-            thisPeer.setBitfield(pieceIdx, (byte)1);
+            byte[] bitfield = thisPeer.setAndGetBitfield(pieceIdx, (byte)1);
+
+            Log.println("Peer " + thisPeer.getPeerId() + " has downloaded the piece " + pieceIdx + " from "
+                    + peerThread.getTarget().getPeerId() + ". Now the number of pieces it has is " + Misc.countPieces(bitfield));
 
             synchronized (numThreads)
             {
@@ -70,4 +77,6 @@ public class WriteFileThread implements Runnable
             e.printStackTrace();
         }
     }
+
+
 }

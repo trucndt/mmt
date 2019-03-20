@@ -8,7 +8,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class PeerThread implements Runnable
 {
     private final Peer thisPeer;
-    public PeerInfo target;
+    private PeerInfo target;
     private Socket socket;
     private boolean initiator;
 
@@ -263,9 +263,8 @@ public class PeerThread implements Runnable
                 // Write to file
                 byte[] payload = rcvMsg.getPayload();
                 int piece = ByteBuffer.wrap(payload, 0, 4).getInt();
-                new WriteFileThread(thisPeer.FILE_PATH, piece, payload, 4, payload.length - 4, thisPeer);
-                Log.println("Peer " + thisPeer.getPeerId() + " has downloaded the piece " + piece + " from "
-                        + target.getPeerId() + ". Now the number of pieces it has is " + countPieces());
+                new WriteFileThread(thisPeer.FILE_PATH, piece, payload, 4, payload.length - 4,
+                        thisPeer, this);
 
                 sendRequest();
                 break;
@@ -362,18 +361,9 @@ public class PeerThread implements Runnable
         return bitfield;
     }
 
-    /**
-     * Count the number of pieces one has
-     * @return number of pieces
-     */
-    private int countPieces()
+    public PeerInfo getTarget()
     {
-        byte[] bitfield = thisPeer.getBitfield();
-        int cnt = 0;
-        for (byte b : bitfield)
-            if (b == 1) cnt++;
-
-        return cnt;
+        return target;
     }
 
     public void exit() throws IOException

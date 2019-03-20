@@ -135,25 +135,15 @@ public class Peer
 
     private void waitUntilNeighborBitfieldFull() throws InterruptedException
     {
-        // TODO: optimize this code
         synchronized (neighborBitfield)
         {
-            while (true)
+            for (Map.Entry<Integer, boolean[]> item : neighborBitfield.entrySet())
             {
-                boolean full = true;
-                for (Map.Entry<Integer, boolean[]> item : neighborBitfield.entrySet())
+                for (int i = 0; i < item.getValue().length; i++)
                 {
-                    for (boolean b : item.getValue())
-                        if (!b)
-                        {
-                            full = false;
-                            break;
-                        }
-                    if (!full) break;
+                    while (!item.getValue()[i])
+                        neighborBitfield.wait();
                 }
-
-                if (full) break;
-                else neighborBitfield.wait();
             }
         }
     }
@@ -187,7 +177,7 @@ public class Peer
     }
 
     /**
-     * Set a value in bitfield
+     * Set a value in bitfield and notify all PeerSeed
      * @param idx index of piece
      * @param val value
      */
@@ -198,21 +188,51 @@ public class Peer
             bitfield[idx] = val;
         }
 
-        if (val == 1)
-        {
-            // notify all PeerSeed
-            lockPeerThreads.readLock().lock();
-            for (PeerThread p : peerThreads)
-            {
-                p.sendSeed(MsgPeerSeed.TYPE_NEW_PIECE, idx);
-            }
-            lockPeerThreads.readLock().unlock();
-        }
+        if (val == 1) notifyNewPiece(idx);
 
         synchronized (bitfield)
         {
             bitfield.notifyAll();
         }
+    }
+
+    /**
+     * Set a value in bitfield and notify all PeerSeed
+     * @param idx index of piece
+     * @param val value
+     * @return a copy of bitfield
+     */
+    public byte[] setAndGetBitfield(int idx, byte val)
+    {
+        byte[] copy;
+        synchronized (bitfield)
+        {
+            bitfield[idx] = val;
+            copy = Arrays.copyOf(bitfield, bitfield.length);
+        }
+
+        if (val == 1) notifyNewPiece(idx);
+
+        synchronized (bitfield)
+        {
+            bitfield.notifyAll();
+        }
+
+        return copy;
+    }
+
+    /**
+     * Notify all PeerSeed of having a new piece
+     * @param idx piece index
+     */
+    private void notifyNewPiece(int idx)
+    {
+        lockPeerThreads.readLock().lock();
+        for (PeerThread p : peerThreads)
+        {
+            p.sendSeed(MsgPeerSeed.TYPE_NEW_PIECE, idx);
+        }
+        lockPeerThreads.readLock().unlock();
     }
 
     /**

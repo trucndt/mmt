@@ -1,4 +1,4 @@
-public class PeerInfo
+public class PeerInfo implements Cloneable
 {
     private int peerId;
     private String hostname;
@@ -59,5 +59,18 @@ public class PeerInfo
         System.out.println("Host name: " + hostname);
         System.out.println("Port: " + port);
         System.out.println("Has file: " + hasFile);
+    }
+
+    @Override
+    public PeerInfo clone()
+    {
+        try
+        {
+            return (PeerInfo) super.clone();
+        } catch (CloneNotSupportedException e)
+        {
+            e.printStackTrace();
+            return null;
+        }
     }
 }
