@@ -263,8 +263,7 @@ public class PeerThread implements Runnable
                 // Write to file
                 byte[] payload = rcvMsg.getPayload();
                 int piece = ByteBuffer.wrap(payload, 0, 4).getInt();
-                new WriteFileThread(thisPeer.FILE_PATH, piece, payload, 4, payload.length - 4);
-                thisPeer.setBitfield(piece, (byte)1);
+                new WriteFileThread(thisPeer.FILE_PATH, piece, payload, 4, payload.length - 4, thisPeer);
 
                 sendRequest();
                 break;
