@@ -35,7 +35,6 @@ public class PeerSeed implements Runnable
             while (true)
             {
                 MsgPeerSeed msg = toSeed.take();
-                done.set(false);
 
                 switch (msg.getEventType())
                 {
@@ -47,12 +46,14 @@ public class PeerSeed implements Runnable
                     case MsgPeerSeed.TYPE_NEW_PIECE:
                         sendHave((int)msg.getContent());
                         break;
-                }
 
-                synchronized (done)
-                {
-                    done.set(true);
-                    done.notifyAll();
+                    case MsgPeerSeed.TYPE_EXIT:
+                        synchronized (done)
+                        {
+                            done.set(true);
+                            done.notifyAll();
+                        }
+                        return;
                 }
             }
 
@@ -69,11 +70,6 @@ public class PeerSeed implements Runnable
             {
                 e1.printStackTrace();
                 System.err.println("Seed: Cannot close file");
-            }
-            synchronized (done)
-            {
-                done.set(true);
-                done.notifyAll();
             }
         }
     }
@@ -157,8 +153,23 @@ public class PeerSeed implements Runnable
         return data;
     }
 
+    /**
+     * exit procedure for PeerSeed
+     */
     public void exit()
     {
+        while (true)
+        {
+            try
+            {
+                toSeed.put(new MsgPeerSeed(MsgPeerSeed.TYPE_EXIT, null));
+                break;
+            } catch (InterruptedException e)
+            {
+                e.printStackTrace();
+            }
+        }
+
         synchronized (done)
         {
             while (!done.get())
@@ -172,5 +183,6 @@ public class PeerSeed implements Runnable
                 }
             }
         }
+
     }
 }

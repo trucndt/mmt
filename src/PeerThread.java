@@ -19,8 +19,6 @@ public class PeerThread implements Runnable
 
     private final PeerSeed peerSeed;
 
-    private final AtomicBoolean done = new AtomicBoolean(false);
-
     PeerThread(Peer thisPeer, PeerInfo target, Socket connectionSocket, boolean initiator) throws IOException
     {
         this.target = target;
@@ -58,8 +56,6 @@ public class PeerThread implements Runnable
                 byte[] msgLenType = new byte[Misc.MESSAGE_LENGTH_LENGTH + 1];
                 fromNeighbor.readFully(msgLenType);
 
-                done.set(false);
-
                 int msgLen = ByteBuffer.wrap(msgLenType, 0, 4).getInt() - 1; // not including message type
                 byte msgType = msgLenType[4];
 
@@ -68,12 +64,6 @@ public class PeerThread implements Runnable
                 fromNeighbor.readFully(payload);
 
                 processReceivedMessage(new Message(msgType, payload));
-
-                synchronized (done)
-                {
-                    done.set(true);
-                    done.notifyAll();
-                }
             }
 
         } catch (IOException | InterruptedException e)
@@ -89,12 +79,6 @@ public class PeerThread implements Runnable
             {
                 e1.printStackTrace();
                 System.err.println("Get: Cannot close socket");
-            }
-
-            synchronized (done)
-            {
-                done.set(true);
-                done.notifyAll();
             }
         }
     }
@@ -366,24 +350,17 @@ public class PeerThread implements Runnable
         return target;
     }
 
+    /**
+     * exit procedure for PeerThread
+     * @throws IOException
+     */
     public void exit() throws IOException
     {
-        synchronized (done)
+        peerSeed.exit(); // wait until PeerSeed exit
+        synchronized (toNeighbor)
         {
-            while (!done.get())
-            {
-                try
-                {
-                    done.wait();
-                } catch (InterruptedException e)
-                {
-                    e.printStackTrace();
-                }
-            }
+            toNeighbor.flush();
         }
-
-        peerSeed.exit();
-        toNeighbor.flush();
         socket.close();
     }
 
