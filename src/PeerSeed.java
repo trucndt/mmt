@@ -1,6 +1,7 @@
 import java.io.*;
 import java.util.Arrays;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class PeerSeed implements Runnable
 {
@@ -9,6 +10,8 @@ public class PeerSeed implements Runnable
 
     private final RandomAccessFile file;
     private final BlockingQueue<MsgPeerSeed> toSeed;
+
+    private final AtomicBoolean done = new AtomicBoolean(false);
 
     PeerSeed(Peer thisPeer, PeerThread peerThread, BlockingQueue<MsgPeerSeed> toSeed) throws IOException
     {
@@ -32,6 +35,7 @@ public class PeerSeed implements Runnable
             while (true)
             {
                 MsgPeerSeed msg = toSeed.take();
+                done.set(false);
 
                 switch (msg.getEventType())
                 {
@@ -44,22 +48,33 @@ public class PeerSeed implements Runnable
                         sendHave((int)msg.getContent());
                         break;
                 }
+
+                synchronized (done)
+                {
+                    done.set(true);
+                    done.notifyAll();
+                }
             }
 
-        } catch (IOException e)
+        } catch (IOException | InterruptedException e)
         {
             e.printStackTrace();
+
+        } finally
+        {
             try
             {
                 file.close();
             } catch (IOException e1)
             {
                 e1.printStackTrace();
-                System.err.println("Seed: Cannot close socket");
+                System.err.println("Seed: Cannot close file");
             }
-        } catch (InterruptedException e)
-        {
-            e.printStackTrace();
+            synchronized (done)
+            {
+                done.set(true);
+                done.notifyAll();
+            }
         }
     }
 
@@ -69,6 +84,7 @@ public class PeerSeed implements Runnable
     {
         /* send message */
         byte[] payload = Misc.intToByteArray(idx);
+        System.out.println("Sending HAVE " + idx + " to " + peerThread.target.getPeerId());
         peerThread.sendMessage(new Message(Message.TYPE_HAVE, payload));
     }
 
@@ -139,5 +155,22 @@ public class PeerSeed implements Runnable
         }
 
         return data;
+    }
+
+    public void exit()
+    {
+        synchronized (done)
+        {
+            while (!done.get())
+            {
+                try
+                {
+                    done.wait();
+                } catch (InterruptedException e)
+                {
+                    e.printStackTrace();
+                }
+            }
+        }
     }
 }

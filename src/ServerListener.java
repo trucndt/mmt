@@ -41,7 +41,7 @@ public class ServerListener implements Runnable
         }
     }
 
-    public void closeSocket() throws IOException
+    public void exit() throws IOException
     {
         welcomeSocket.close();
     }

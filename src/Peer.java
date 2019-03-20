@@ -107,9 +107,9 @@ public class Peer
         waitUntilNeighborBitfieldFull();
 
         // close all sockets
-        serverListener.closeSocket();
+        serverListener.exit();
         lockPeerThreads.readLock().lock();
-        for (PeerThread p : peerThreads) p.closeSocket();
+        for (PeerThread p : peerThreads) p.exit();
         lockPeerThreads.readLock().unlock();
     }
 
@@ -121,7 +121,7 @@ public class Peer
             {
                 boolean full = true;
                 for (byte b : bitfield)
-                    if (b == 0)
+                    if (b != 1)
                     {
                         full = false;
                         break;
@@ -196,7 +196,6 @@ public class Peer
         synchronized (bitfield)
         {
             bitfield[idx] = val;
-            if (val == 1) bitfield.notifyAll();
         }
 
         if (val == 1)
@@ -208,6 +207,11 @@ public class Peer
                 p.sendSeed(MsgPeerSeed.TYPE_NEW_PIECE, idx);
             }
             lockPeerThreads.readLock().unlock();
+        }
+
+        synchronized (bitfield)
+        {
+            bitfield.notifyAll();
         }
     }
 

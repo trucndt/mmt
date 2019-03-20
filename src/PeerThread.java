@@ -3,11 +3,12 @@ import java.net.Socket;
 import java.nio.ByteBuffer;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class PeerThread implements Runnable
 {
     private final Peer thisPeer;
-    private PeerInfo target;
+    public PeerInfo target;
     private Socket socket;
     private boolean initiator;
 
@@ -15,6 +16,10 @@ public class PeerThread implements Runnable
     private final DataInputStream fromNeighbor;
 
     private final BlockingQueue<MsgPeerSeed> toSeed;
+
+    private final PeerSeed peerSeed;
+
+    private final AtomicBoolean done = new AtomicBoolean(false);
 
     PeerThread(Peer thisPeer, PeerInfo target, Socket connectionSocket, boolean initiator) throws IOException
     {
@@ -27,6 +32,8 @@ public class PeerThread implements Runnable
         fromNeighbor = new DataInputStream(new BufferedInputStream(socket.getInputStream()));
 
         toSeed = new LinkedBlockingQueue<>();
+
+        peerSeed = new PeerSeed(thisPeer, this, toSeed);
     }
 
     @Override
@@ -43,13 +50,15 @@ public class PeerThread implements Runnable
             }
 
             // Create PeerSeed
-            new Thread(new PeerSeed(thisPeer, this, toSeed)).start();
+            new Thread(peerSeed).start();
 
             while (true)
             {
                 // wait for incoming messages
                 byte[] msgLenType = new byte[Misc.MESSAGE_LENGTH_LENGTH + 1];
                 fromNeighbor.readFully(msgLenType);
+
+                done.set(false);
 
                 int msgLen = ByteBuffer.wrap(msgLenType, 0, 4).getInt() - 1; // not including message type
                 byte msgType = msgLenType[4];
@@ -59,20 +68,19 @@ public class PeerThread implements Runnable
                 fromNeighbor.readFully(payload);
 
                 processReceivedMessage(new Message(msgType, payload));
+
+                synchronized (done)
+                {
+                    done.set(true);
+                    done.notifyAll();
+                }
             }
 
-        } catch (IOException e)
+        } catch (IOException | InterruptedException e)
         {
             e.printStackTrace();
-            try
-            {
-                socket.close();
-            } catch (IOException e1)
-            {
-                e1.printStackTrace();
-                System.err.println("Get: Cannot close socket");
-            }
-        } catch (InterruptedException e)
+        }
+        finally
         {
             try
             {
@@ -82,7 +90,12 @@ public class PeerThread implements Runnable
                 e1.printStackTrace();
                 System.err.println("Get: Cannot close socket");
             }
-            e.printStackTrace();
+
+            synchronized (done)
+            {
+                done.set(true);
+                done.notifyAll();
+            }
         }
     }
 
@@ -214,10 +227,14 @@ public class PeerThread implements Runnable
                 thisPeer.setNeighborBitfield(target.getPeerId(), seedBitfield);
 
                 // if there exists an interesting piece, send INTERESTED
-                if (thisPeer.selectNewPieceFromNeighbor(target.getPeerId()) != -1)
-                    sendMessage(new Message(Message.TYPE_INTERESTED, null));
-                else
-                    sendMessage(new Message(Message.TYPE_NOT_INTERESTED, null));
+                for (int i = 0; i < seedBitfield.length; i++)
+                    if (seedBitfield[i] && !thisPeer.checkPiece(i))
+                    {
+                        sendMessage(new Message(Message.TYPE_INTERESTED, null));
+                        return;
+                    }
+
+                sendMessage(new Message(Message.TYPE_NOT_INTERESTED, null));
                 break;
 
             case Message.TYPE_HAVE:
@@ -225,6 +242,7 @@ public class PeerThread implements Runnable
                 int index = Misc.byteArrayToInt(rcvMsg.getPayload());
                 boolean exist = thisPeer.checkPiece(index);
                 thisPeer.setNeighborBitfield(target.getPeerId(),index);
+                System.out.println("Get: Receive HAVE" + index + " from " + target.getPeerId());
 
                 if (exist)
                     sendMessage(new Message(Message.TYPE_NOT_INTERESTED, null));
@@ -261,7 +279,7 @@ public class PeerThread implements Runnable
      * @param msg Message object
      * @throws IOException
      */
-    void sendMessage(Message msg) throws IOException
+    void sendMessage(Message msg)
     {
         byte[] payload = msg.getPayload();
         int length;
@@ -275,9 +293,15 @@ public class PeerThread implements Runnable
 
         synchronized (toNeighbor)
         {
-            toNeighbor.writeInt(length);
-            toNeighbor.writeByte(msg.getType());
-            toNeighbor.write(payload, 0, length - 1);
+            try
+            {
+                toNeighbor.writeInt(length);
+                toNeighbor.writeByte(msg.getType());
+                toNeighbor.write(payload, 0, length - 1);
+            }catch (IOException e)
+            {
+                e.printStackTrace();
+            }
         }
     }
 
@@ -337,8 +361,24 @@ public class PeerThread implements Runnable
         return bitfield;
     }
 
-    public void closeSocket() throws IOException
+    public void exit() throws IOException
     {
+        synchronized (done)
+        {
+            while (!done.get())
+            {
+                try
+                {
+                    done.wait();
+                } catch (InterruptedException e)
+                {
+                    e.printStackTrace();
+                }
+            }
+        }
+
+        peerSeed.exit();
+        toNeighbor.flush();
         socket.close();
     }
 
