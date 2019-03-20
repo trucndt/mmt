@@ -264,6 +264,8 @@ public class PeerThread implements Runnable
                 byte[] payload = rcvMsg.getPayload();
                 int piece = ByteBuffer.wrap(payload, 0, 4).getInt();
                 new WriteFileThread(thisPeer.FILE_PATH, piece, payload, 4, payload.length - 4, thisPeer);
+                Log.println("Peer " + thisPeer.getPeerId() + " has downloaded the piece " + piece + " from "
+                        + target.getPeerId() + ". Now the number of pieces it has is " + countPieces());
 
                 sendRequest();
                 break;
@@ -358,6 +360,20 @@ public class PeerThread implements Runnable
             if ((i + 1) % 8 == 0) byteIdx++;
         }
         return bitfield;
+    }
+
+    /**
+     * Count the number of pieces one has
+     * @return number of pieces
+     */
+    private int countPieces()
+    {
+        byte[] bitfield = thisPeer.getBitfield();
+        int cnt = 0;
+        for (byte b : bitfield)
+            if (b == 1) cnt++;
+
+        return cnt;
     }
 
     public void exit() throws IOException

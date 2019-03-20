@@ -215,11 +215,15 @@ public class Peer
         }
     }
 
+    /**
+     * Getter for bitfield
+     * @return a copy of current bitfield
+     */
     public byte[] getBitfield()
     {
         synchronized (bitfield)
         {
-            return bitfield;
+            return Arrays.copyOf(bitfield, bitfield.length);
         }
     }
 
