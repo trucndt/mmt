@@ -3,6 +3,7 @@ import java.net.ConnectException;
 import java.net.Socket;
 import java.net.UnknownHostException;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -15,12 +16,16 @@ public class Peer
     private int hasFile;
 
     private final byte[] bitfield; // yes=1, no=0, requested=2
-    private final Set<Integer> preferredNeighbor;
+
+    private final Map<Integer, AtomicBoolean> preferredNeighbor;
+
     private final AtomicInteger optimistUnchoke;
     private final Map<Integer, boolean[]> neighborBitfield;
 
     private final LinkedList<PeerThread> peerThreads = new LinkedList<>();
-    private final ReadWriteLock lockPeerThreads = new ReentrantReadWriteLock();
+    private final ReadWriteLock lock_PeerThreads = new ReentrantReadWriteLock();
+
+    private final Map<Integer, Double> downloadRate;
 
     public final String FILE_PATH;
     public final int NUM_OF_PIECES;
@@ -66,14 +71,17 @@ public class Peer
 
         /* Initialize preferred neighbor */
         // Assume n-1 neighbor is preferred
-        preferredNeighbor = new HashSet<>(peerList.size() - 1);
-        for (int i = 0; i < peerList.size() - 1; i++)
+        preferredNeighbor = new HashMap<>(peerList.size() - 1);
+        for (PeerInfo p : peerList)
         {
-            preferredNeighbor.add(peerList.get(i).getPeerId());
+            if (p.getPeerId() != peerId)
+                preferredNeighbor.put(p.getPeerId(), new AtomicBoolean(true));
         }
 
         // The last neighbor
         optimistUnchoke = new AtomicInteger(peerList.get(peerList.size() - 1).getPeerId());
+
+        downloadRate = new HashMap<>(peerList.size() - 1);
 
         // Set file path
         FILE_PATH = "peer_" + peerId + "/" + MMT.FileName;
@@ -93,11 +101,15 @@ public class Peer
                 if (connectionSocket == null) continue;
 
                 PeerThread peerThread = new PeerThread(this, target, connectionSocket, true);
-                new Thread(peerThread).start();
+                peerThread.start();
 
                 addPeerThread(peerThread);
             }
         }
+
+        // Choke thread
+        ChokeThread chokeThread = new ChokeThread(this);
+        chokeThread.start();
 
         if (hasFile == 0)
         {
@@ -108,27 +120,20 @@ public class Peer
 
         // close all sockets
         serverListener.exit();
-        lockPeerThreads.readLock().lock();
+        lock_PeerThreads.readLock().lock();
         for (PeerThread p : peerThreads) p.exit();
-        lockPeerThreads.readLock().unlock();
+        lock_PeerThreads.readLock().unlock();
+        chokeThread.exit();
     }
 
     private void waitUntilBitfieldFull() throws InterruptedException
     {
-        synchronized (bitfield)
+        for (int i = 0; i < bitfield.length; i++)
         {
-            while (true)
+            synchronized (bitfield)
             {
-                boolean full = true;
-                for (byte b : bitfield)
-                    if (b != 1)
-                    {
-                        full = false;
-                        break;
-                    }
-
-                if (full) break;
-                else bitfield.wait();
+                while (bitfield[i] != 1)
+                    bitfield.wait();
             }
         }
     }
@@ -161,6 +166,19 @@ public class Peer
     void setHasFile(int hasFile)
     {
         this.hasFile = hasFile;
+    }
+
+    /**
+     * Get download rate of a peer
+     * @param peerId peer ID
+     * @return download rate
+     */
+    public double getDownloadRate(int peerId)
+    {
+        synchronized (downloadRate.get(peerId))
+        {
+            return downloadRate.get(peerId);
+        }
     }
 
     /**
@@ -227,12 +245,12 @@ public class Peer
      */
     private void notifyNewPiece(int idx)
     {
-        lockPeerThreads.readLock().lock();
+        lock_PeerThreads.readLock().lock();
         for (PeerThread p : peerThreads)
         {
             p.sendSeed(MsgPeerSeed.TYPE_NEW_PIECE, idx);
         }
-        lockPeerThreads.readLock().unlock();
+        lock_PeerThreads.readLock().unlock();
     }
 
     /**
@@ -365,8 +383,8 @@ public class Peer
      */
     public void addPeerThread(PeerThread pt)
     {
-        lockPeerThreads.writeLock().lock();
+        lock_PeerThreads.writeLock().lock();
         peerThreads.add(pt);
-        lockPeerThreads.writeLock().unlock();
+        lock_PeerThreads.writeLock().unlock();
     }
 }

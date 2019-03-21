@@ -47,7 +47,7 @@ public class Log implements Runnable
     private static String getCurrentTime()
     {
         LocalDateTime time = LocalDateTime.now();
-        return String.valueOf(time);
+        return time.toString();
     }
 
     @Override

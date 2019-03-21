@@ -66,7 +66,7 @@ public class PeerThread implements Runnable
                 processReceivedMessage(new Message(msgType, payload));
             }
 
-        } catch (IOException | InterruptedException e)
+        } catch (IOException e)
         {
             e.printStackTrace();
         }
@@ -201,7 +201,7 @@ public class PeerThread implements Runnable
      * @param rcvMsg Message object of the received msg
      * @throws IOException
      */
-    private void processReceivedMessage(Message rcvMsg) throws IOException, InterruptedException
+    private void processReceivedMessage(Message rcvMsg) throws IOException
     {
         System.out.println("Get: Receive msg of type " + rcvMsg.getType() + " from " + target.getPeerId());
         switch (rcvMsg.getType())
@@ -348,6 +348,11 @@ public class PeerThread implements Runnable
     public PeerInfo getTarget()
     {
         return target;
+    }
+
+    public void start()
+    {
+        new Thread(this).start();
     }
 
     /**
