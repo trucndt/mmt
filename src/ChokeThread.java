@@ -1,7 +1,4 @@
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Random;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.*;
 
 public class ChokeThread implements Runnable
 {
@@ -26,32 +23,41 @@ public class ChokeThread implements Runnable
                 Thread.sleep(MMT.UnchokingInterval * 1000);
 
                 // get data
-                double[] rate = new double[thisPeer.getPeerList().size() - 1];
-                int[] peerId = new int[thisPeer.getPeerList().size() - 1];
+                ArrayList<Double> rate = new ArrayList<>(thisPeer.getPeerList().size() - 1);
+                ArrayList<Integer> validId = new ArrayList<>(thisPeer.getPeerList().size() - 1);
                 List<PeerInfo> peerList = thisPeer.getPeerList();
 
-                for (int i = 0; i < rate.length; i++)
+                for (PeerInfo peerInfo : peerList)
                 {
-                    int id = peerList.get(i).getPeerId();
-                    if (id != thisPeer.getPeerId())
+                    int id = peerInfo.getPeerId();
+                    // Not myself and is interested
+                    if (id != thisPeer.getPeerId() && thisPeer.checkInterestedNeighbor(id))
                     {
-                        rate[i] = thisPeer.getDownloadRate(id);
-                        peerId[i] = id;
+                        rate.add(thisPeer.getDownloadRate(id));
+                        validId.add(id);
                     }
                 }
 
-                ArrayList<Integer> peerIdx;
+                ArrayList<Integer> highestIdx;
                 if (!thisPeer.getHasFile())
                 {
-                    peerIdx = findKHighestRate(rate, MMT.NumOfPreferredNeighbors);
+                    highestIdx = findKHighestRate(rate, MMT.NumOfPreferredNeighbors);
                 }
                 else
                 {
                     Random r = new Random();
-                    //TODO select random index
+                    //TODO remove the following line and select random index
+                    highestIdx = findKHighestRate(rate, MMT.NumOfPreferredNeighbors);
                 }
 
                 // update preferred neighbor
+                boolean[] isPreferred = new boolean[validId.size()];
+                Arrays.fill(isPreferred, false);
+                for (int idx : highestIdx)
+                    isPreferred[idx] = true;
+
+                for (int i = 0; i < validId.size(); i++)
+                    thisPeer.setPreferredNeighbor(validId.get(i), isPreferred[i]);
 
             } catch (InterruptedException e)
             {
@@ -67,19 +73,19 @@ public class ChokeThread implements Runnable
      * @param K K
      * @return list of indexes of K highest rates
      */
-    private ArrayList<Integer> findKHighestRate(double[] rate, int K)
+    private ArrayList<Integer> findKHighestRate(ArrayList<Double> rate, int K)
     {
-        ArrayList<Integer> largestIdx = new ArrayList<>(K);
+        ArrayList<Integer> highestIdx = new ArrayList<>(K);
 
         //TODO: comment the following block, put K largest indexes into largestIdx
         {
-            for (int i = 0; i < rate.length; i++)
+            for (int i = 0; i < rate.size(); i++)
             {
-                largestIdx.add(i);
+                highestIdx.add(i);
             }
         }
 
-        return largestIdx;
+        return highestIdx;
     }
 
     public void start()
@@ -119,13 +125,21 @@ class OptimisticChokeThread implements Runnable
 
                 int prevId = thisPeer.getOptimistUnchoke();
                 int neighborId = prevId;
+                Set<Integer> checkedNeighbor = new HashSet<>(peerList.size());
 
-                while (neighborId == thisPeer.getPeerId() || neighborId == prevId)
+                while (neighborId == thisPeer.getPeerId() || neighborId == prevId
+                        || thisPeer.checkPreferredNeighbor(neighborId) || !thisPeer.checkInterestedNeighbor(neighborId))
                 {
+                    checkedNeighbor.add(neighborId);
+                    if (checkedNeighbor.size() == peerList.size())
+                    {
+                        neighborId = -1;
+                        break;
+                    }
                     neighborId = peerList.get(r.nextInt(peerList.size())).getPeerId();
                 }
 
-                thisPeer.setOptimistUnchoke(neighborId);
+                if (neighborId != -1) thisPeer.setOptimistUnchoke(neighborId);
             } catch (InterruptedException e)
             {
                 e.printStackTrace();

@@ -201,9 +201,8 @@ public class PeerThread implements Runnable
     /**
      * Process message
      * @param rcvMsg Message object of the received msg
-     * @throws IOException
      */
-    private void processReceivedMessage(Message rcvMsg) throws IOException
+    private void processReceivedMessage(Message rcvMsg)
     {
         System.out.println("Get: Receive msg of type " + rcvMsg.getType() + " from " + target.getPeerId());
         switch (rcvMsg.getType())
@@ -230,9 +229,7 @@ public class PeerThread implements Runnable
                 thisPeer.setNeighborBitfield(target.getPeerId(),index);
                 System.out.println("Get: Receive HAVE" + index + " from " + target.getPeerId());
 
-                if (exist)
-                    sendMessage(new Message(Message.TYPE_NOT_INTERESTED, null));
-                else
+                if (!exist)
                     sendMessage(new Message(Message.TYPE_INTERESTED, null));
 
                 break;
@@ -259,7 +256,7 @@ public class PeerThread implements Runnable
 
             case Message.TYPE_INTERESTED:
                 thisPeer.setInterestedNeighbor(target.getPeerId(), true);
-                sendSeed(MsgPeerSeed.TYPE_MSG, rcvMsg); //TODO remove this line
+                sendMessage(new Message(Message.TYPE_UNCHOKE, null)); //TODO remove this line
                 break;
 
             case Message.TYPE_NOT_INTERESTED:
@@ -274,7 +271,6 @@ public class PeerThread implements Runnable
     /**
      * Send message to socket
      * @param msg Message object
-     * @throws IOException
      */
     void sendMessage(Message msg)
     {
@@ -306,7 +302,6 @@ public class PeerThread implements Runnable
      * Send a msg to PeerSeed
      * @param type type of MsgPeerSeed
      * @param content object to send
-     * @throws InterruptedException
      */
     void sendSeed(byte type, Object content)
     {
@@ -322,10 +317,11 @@ public class PeerThread implements Runnable
 
     /**
      * Find missing piece and send REQUEST msg
-     * @throws IOException
      */
-    private void sendRequest() throws IOException
+    private void sendRequest()
     {
+        if (thisPeer.getHasFile()) return;
+
         int pieceIdx = thisPeer.selectNewPieceFromNeighbor(target.getPeerId());
         if (pieceIdx == -1)
         {

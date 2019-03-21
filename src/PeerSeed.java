@@ -47,12 +47,15 @@ public class PeerSeed implements Runnable
                         sendHave((int)msg.getContent());
                         break;
 
+                    case MsgPeerSeed.TYPE_UNCHOKE:
+                        peerThread.sendMessage(new Message(Message.TYPE_UNCHOKE, null));
+                        break;
+
+                    case MsgPeerSeed.TYPE_CHOKE:
+                        peerThread.sendMessage(new Message(Message.TYPE_CHOKE, null));
+                        break;
+
                     case MsgPeerSeed.TYPE_EXIT:
-                        synchronized (done)
-                        {
-                            done.set(true);
-                            done.notifyAll();
-                        }
                         return;
                 }
             }
@@ -65,6 +68,11 @@ public class PeerSeed implements Runnable
         {
             try
             {
+                synchronized (done)
+                {
+                    done.set(true);
+                    done.notifyAll();
+                }
                 file.close();
             } catch (IOException e1)
             {
@@ -91,18 +99,14 @@ public class PeerSeed implements Runnable
      */
     private void processReceivedMessage(Message rcvMsg) throws IOException
     {
-        switch (rcvMsg.getType())
+        if (rcvMsg.getType() == Message.TYPE_REQUEST)
         {
-            case Message.TYPE_REQUEST:
-                int pieceIdx = Misc.byteArrayToInt(rcvMsg.getPayload());
-                System.out.println("Seed: Piece requested: " + pieceIdx);
-                sendPiece(pieceIdx);
-                break;
+            if (!thisPeer.checkPreferredNeighbor(peerThread.getTarget().getPeerId())
+                    && thisPeer.getOptimistUnchoke() != peerThread.getTarget().getPeerId()) return;
 
-            case Message.TYPE_INTERESTED:
-                //TODO: NOTE only for testing REQUEST/PIECE -> need to remove
-                peerThread.sendMessage(new Message(Message.TYPE_UNCHOKE, null));
-                break;
+            int pieceIdx = Misc.byteArrayToInt(rcvMsg.getPayload());
+            System.out.println("Seed: Piece requested: " + pieceIdx);
+            sendPiece(pieceIdx);
         }
     }
 

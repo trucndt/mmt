@@ -20,7 +20,7 @@ public class Peer
     private final Map<Integer, AtomicBoolean> preferredNeighbor;
     private final Map<Integer, AtomicBoolean> interestedNeighbor;
 
-    private final AtomicInteger optimistUnchoke = new AtomicInteger();
+    private final AtomicInteger optimistUnchoke;
     private final Map<Integer, boolean[]> neighborBitfield;
 
     private final LinkedList<PeerThread> peerThreads = new LinkedList<>();
@@ -77,10 +77,19 @@ public class Peer
         {
             if (p.getPeerId() != peerId)
             {
-                preferredNeighbor.put(p.getPeerId(), new AtomicBoolean(false));
+                preferredNeighbor.put(p.getPeerId(), new AtomicBoolean(true));
                 interestedNeighbor.put(p.getPeerId(), new AtomicBoolean(false));
             }
         }
+
+        // Initialize optimistic unchoke
+        int neighborId = peerId;
+        Random r = new Random();
+        while (neighborId == peerId)
+        {
+            neighborId = peerList.get(r.nextInt(peerList.size())).getPeerId();
+        }
+        optimistUnchoke = new AtomicInteger(neighborId);
 
         // Initialize download rate
         downloadRate = new HashMap<>(peerList.size() - 1);
@@ -128,11 +137,12 @@ public class Peer
         waitUntilNeighborBitfieldFull();
 
         // close all sockets
-        serverListener.exit();
-        lock_PeerThreads.readLock().lock();
-        for (PeerThread p : peerThreads) p.exit();
-        lock_PeerThreads.readLock().unlock();
         chokeThread.exit();
+        serverListener.exit();
+        lock_PeerThreads.writeLock().lock();
+        for (PeerThread p : peerThreads) p.exit();
+        peerThreads.clear();
+        lock_PeerThreads.writeLock().unlock();
     }
 
     /**
@@ -187,7 +197,36 @@ public class Peer
     public void setOptimistUnchoke(int peerId)
     {
         System.out.println("Optimistic unchoke " + peerId);
+
+        // Choke the previous one if it is not preferred
+        int prevId = optimistUnchoke.get();
+        if (!checkPreferredNeighbor(prevId))
+        {
+            lock_PeerThreads.readLock().lock();
+            for (PeerThread p : peerThreads)
+            {
+                if (p.getTarget().getPeerId() == prevId)
+                {
+                    p.sendSeed(MsgPeerSeed.TYPE_CHOKE, null);
+                    break;
+                }
+            }
+            lock_PeerThreads.readLock().unlock();
+        }
+
         optimistUnchoke.set(peerId);
+
+        // notify corresponding peerseed
+        lock_PeerThreads.readLock().lock();
+        for (PeerThread p : peerThreads)
+        {
+            if (p.getTarget().getPeerId() == peerId)
+            {
+                p.sendSeed(MsgPeerSeed.TYPE_UNCHOKE, null);
+                break;
+            }
+        }
+        lock_PeerThreads.readLock().unlock();
     }
 
     /**
@@ -214,9 +253,30 @@ public class Peer
      * @param peerId neighbor's peer ID
      * @return true if interested
      */
-    public boolean checkInterestedNeighbot(int peerId)
+    public boolean checkInterestedNeighbor(int peerId)
     {
         return interestedNeighbor.get(peerId).get();
+    }
+
+    /**
+     * Check if a neighbor is preferred
+     * @param peerId neighbor's peer ID
+     * @return true if preferred
+     */
+    public boolean checkPreferredNeighbor(int peerId)
+    {
+        return preferredNeighbor.get(peerId).get();
+    }
+
+    /**
+     * Set a neighbor to be preferred or not
+     * @param peerId neighbor's peer id
+     * @param isPreferred true if preferred
+     */
+    public void setPreferredNeighbor(int peerId, boolean isPreferred)
+    {
+        preferredNeighbor.get(peerId).set(isPreferred);
+        //TODO sends choke/unchoke
     }
 
     /**
@@ -257,7 +317,7 @@ public class Peer
             bitfield[idx] = val;
         }
 
-        if (val == 1) notifyNewPiece(idx);
+        if (val == 1) notifyAllPeerSeed(idx, MsgPeerSeed.TYPE_NEW_PIECE);
 
         synchronized (bitfield)
         {
@@ -280,7 +340,7 @@ public class Peer
             copy = Arrays.copyOf(bitfield, bitfield.length);
         }
 
-        if (val == 1) notifyNewPiece(idx);
+        if (val == 1) notifyAllPeerSeed(idx, MsgPeerSeed.TYPE_NEW_PIECE);
 
         synchronized (bitfield)
         {
@@ -291,15 +351,16 @@ public class Peer
     }
 
     /**
-     * Notify all PeerSeed of having a new piece
-     * @param idx piece index
+     * Notify all PeerSeed of some events
+     * @param data data to notify
+     * @param eventType event in MsgPeerSeed
      */
-    private void notifyNewPiece(int idx)
+    private void notifyAllPeerSeed(Object data, byte eventType)
     {
         lock_PeerThreads.readLock().lock();
         for (PeerThread p : peerThreads)
         {
-            p.sendSeed(MsgPeerSeed.TYPE_NEW_PIECE, idx);
+            p.sendSeed(eventType, data);
         }
         lock_PeerThreads.readLock().unlock();
     }
