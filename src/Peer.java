@@ -274,25 +274,30 @@ public class Peer
      */
     public int selectNewPieceFromNeighbor(int neighborId)
     {
+        LinkedList<Integer> notIdx = new LinkedList<>();
+        Random r = new Random();
+
         synchronized (bitfield)
         {
+            // save all missing piece indexes
             for (int i = 0; i < bitfield.length; i++)
-            {
-                if (bitfield[i] == 0)
-                {
-                    synchronized (neighborBitfield)
-                    {
-                        if (neighborBitfield.get(neighborId)[i])
-                        {
-                            bitfield[i] = 2;
-                            return i;
-                        }
-                    }
-                }
-            }
-        }
+                if (bitfield[i] == 0) notIdx.add(i);
 
-        return -1;
+            ArrayList<Integer> sameIdx = new ArrayList<>(notIdx.size());
+            synchronized (neighborBitfield)
+            {
+                for (int j : notIdx)
+                    if (neighborBitfield.get(neighborId)[j]) sameIdx.add(j); //save valid indexes
+
+                if (sameIdx.size() == 0)
+                    return -1;
+
+                int idx = sameIdx.get(r.nextInt(sameIdx.size()));
+                bitfield[idx] = 2;
+                return idx;
+            }
+
+        }
     }
 
     /**
