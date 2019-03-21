@@ -39,7 +39,6 @@ public class MMT
 
         createPeerDir(peerId);
         Log.initialization(peerId);
-        new Thread(new Log()).start();
 
         readCommonCfg();
         List<PeerInfo> peerList = readPeerCfg();
@@ -47,9 +46,7 @@ public class MMT
         Peer peer = new Peer(peerId, peerList);
         peer.start();
 
-        // stop remaining threads
-        for (Thread t : Thread.getAllStackTraces().keySet())
-            t.interrupt();
+        Log.exit();
     }
 
     /**

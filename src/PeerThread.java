@@ -12,6 +12,8 @@ public class PeerThread implements Runnable
     private Socket socket;
     private boolean initiator;
 
+    private boolean isUnchoke;
+
     private final DataOutputStream toNeighbor;
     private final DataInputStream fromNeighbor;
 
@@ -236,21 +238,32 @@ public class PeerThread implements Runnable
                 break;
 
             case Message.TYPE_UNCHOKE:
-                // send REQUEST
+                isUnchoke = true;
                 sendRequest();
                 break;
 
             case Message.TYPE_CHOKE:
+                isUnchoke = false;
                 break;
 
             case Message.TYPE_PIECE:
                 // Write to file
                 byte[] payload = rcvMsg.getPayload();
                 int piece = ByteBuffer.wrap(payload, 0, 4).getInt();
-                new WriteFileThread(thisPeer.FILE_PATH, piece, payload, 4, payload.length - 4,
-                        thisPeer, this);
+                WriteFileThread w = new WriteFileThread(thisPeer.FILE_PATH, piece, payload, 4,
+                        payload.length - 4, thisPeer, this);
+                w.start();
 
-                sendRequest();
+                if (isUnchoke) sendRequest();
+                break;
+
+            case Message.TYPE_INTERESTED:
+                thisPeer.setInterestedNeighbor(target.getPeerId(), true);
+                sendSeed(MsgPeerSeed.TYPE_MSG, rcvMsg); //TODO remove this line
+                break;
+
+            case Message.TYPE_NOT_INTERESTED:
+                thisPeer.setInterestedNeighbor(target.getPeerId(), false);
                 break;
 
             default: // send to PeerSeed other messages

@@ -13,6 +13,7 @@ public class WriteFileThread implements Runnable
     private final byte[] buffer;
     private final Peer thisPeer;
     private final PeerThread peerThread;
+    private final Thread thread;
 
     /**
      * Start a thread to write piece to file, then set the corresponding bitfield
@@ -34,7 +35,13 @@ public class WriteFileThread implements Runnable
         this.buffer = buffer;
         this.thisPeer = thisPeer;
         this.peerThread = peerThread;
+        thread = new Thread(this);
 
+
+    }
+
+    public void start()
+    {
         synchronized (numThreads)
         {
             while (numThreads.get() >= MAX_THREADS)
@@ -47,8 +54,7 @@ public class WriteFileThread implements Runnable
                     e.printStackTrace();
                 }
             }
-
-            new Thread(this).start();
+            thread.start();
             numThreads.incrementAndGet();
         }
     }

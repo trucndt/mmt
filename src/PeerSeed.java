@@ -100,11 +100,8 @@ public class PeerSeed implements Runnable
                 break;
 
             case Message.TYPE_INTERESTED:
-                //TODO: NOTE only for testing REQUEST/PIECE
+                //TODO: NOTE only for testing REQUEST/PIECE -> need to remove
                 peerThread.sendMessage(new Message(Message.TYPE_UNCHOKE, null));
-                break;
-
-            case Message.TYPE_NOT_INTERESTED:
                 break;
         }
     }

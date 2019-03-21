@@ -11,6 +11,7 @@ public class Log implements Runnable
 {
     private static FileWriter file;
     private static BlockingQueue<String> queue = new LinkedBlockingQueue<>();
+    private static Thread thread;
 
     /**
      * Create log file, initialize peer ID
@@ -22,6 +23,9 @@ public class Log implements Runnable
     {
         String fileName = "log_peer_" + peerId + ".log";
         file = new FileWriter(fileName, false);
+
+        thread = new Thread(new Log());
+        thread.start();
     }
 
     /**
@@ -71,6 +75,18 @@ public class Log implements Runnable
             {
                 e1.printStackTrace();
             }
+        }
+    }
+
+    public static void exit()
+    {
+        thread.interrupt();
+        try
+        {
+            file.close();
+        } catch (IOException e)
+        {
+            e.printStackTrace();
         }
     }
 }

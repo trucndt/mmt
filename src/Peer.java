@@ -13,13 +13,14 @@ public class Peer
     private final List<PeerInfo> peerList;
     private final int peerId;
     private int serverPort;
-    private int hasFile;
+    private AtomicBoolean hasFile = new AtomicBoolean(false);
 
     private final byte[] bitfield; // yes=1, no=0, requested=2
 
     private final Map<Integer, AtomicBoolean> preferredNeighbor;
+    private final Map<Integer, AtomicBoolean> interestedNeighbor;
 
-    private final AtomicInteger optimistUnchoke;
+    private final AtomicInteger optimistUnchoke = new AtomicInteger();
     private final Map<Integer, boolean[]> neighborBitfield;
 
     private final LinkedList<PeerThread> peerThreads = new LinkedList<>();
@@ -41,7 +42,7 @@ public class Peer
             if (peer.getPeerId() == peerId)
             {
                 serverPort = peer.getPort();
-                hasFile = peer.getHasFile();
+                if (peer.getHasFile() == 1) hasFile.set(true);
                 break;
             }
         }
@@ -50,7 +51,7 @@ public class Peer
         NUM_OF_PIECES = (int)Math.ceil(MMT.FileSize*1.0/MMT.PieceSize);
         bitfield = new byte[NUM_OF_PIECES];
 
-        if (hasFile == 1)
+        if (hasFile.get())
         {
             for (int i = 0; i < NUM_OF_PIECES; i++)
                 bitfield[i] = 1;
@@ -70,18 +71,24 @@ public class Peer
             }
 
         /* Initialize preferred neighbor */
-        // Assume n-1 neighbor is preferred
         preferredNeighbor = new HashMap<>(peerList.size() - 1);
+        interestedNeighbor = new HashMap<>(peerList.size() - 1);
         for (PeerInfo p : peerList)
         {
             if (p.getPeerId() != peerId)
-                preferredNeighbor.put(p.getPeerId(), new AtomicBoolean(true));
+            {
+                preferredNeighbor.put(p.getPeerId(), new AtomicBoolean(false));
+                interestedNeighbor.put(p.getPeerId(), new AtomicBoolean(false));
+            }
         }
 
-        // The last neighbor
-        optimistUnchoke = new AtomicInteger(peerList.get(peerList.size() - 1).getPeerId());
-
+        // Initialize download rate
         downloadRate = new HashMap<>(peerList.size() - 1);
+        for (PeerInfo p : peerList)
+        {
+            if (p.getPeerId() != peerId)
+                downloadRate.put(p.getPeerId(), 0.0);
+        }
 
         // Set file path
         FILE_PATH = "peer_" + peerId + "/" + MMT.FileName;
@@ -111,10 +118,12 @@ public class Peer
         ChokeThread chokeThread = new ChokeThread(this);
         chokeThread.start();
 
-        if (hasFile == 0)
+        if (!hasFile.get())
         {
             waitUntilBitfieldFull();
         }
+
+        hasFile.set(true);
 
         waitUntilNeighborBitfieldFull();
 
@@ -126,6 +135,10 @@ public class Peer
         chokeThread.exit();
     }
 
+    /**
+     * Wait until bitfield is full
+     * @throws InterruptedException
+     */
     private void waitUntilBitfieldFull() throws InterruptedException
     {
         for (int i = 0; i < bitfield.length; i++)
@@ -138,6 +151,10 @@ public class Peer
         }
     }
 
+    /**
+     * Wait until neighbors' bitfield is full
+     * @throws InterruptedException
+     */
     private void waitUntilNeighborBitfieldFull() throws InterruptedException
     {
         synchronized (neighborBitfield)
@@ -158,14 +175,48 @@ public class Peer
         return peerId;
     }
 
-    int getHasFile()
+    boolean getHasFile()
     {
-        return hasFile;
+        return hasFile.get();
     }
 
-    void setHasFile(int hasFile)
+    /**
+     * Set a neighbor to be optimist unchoke
+     * @param peerId
+     */
+    public void setOptimistUnchoke(int peerId)
     {
-        this.hasFile = hasFile;
+        System.out.println("Optimistic unchoke " + peerId);
+        optimistUnchoke.set(peerId);
+    }
+
+    /**
+     * Getter for OptimistUnchoke
+     * @return
+     */
+    public int getOptimistUnchoke()
+    {
+        return optimistUnchoke.get();
+    }
+
+    /**
+     * Set a neighbor to be interested or not interested
+     * @param peerId neighbor's peer id
+     * @param isInterested true if interested
+     */
+    public void setInterestedNeighbor(int peerId, boolean isInterested)
+    {
+        interestedNeighbor.get(peerId).set(isInterested);
+    }
+
+    /**
+     * Check if a neighbor is interested
+     * @param peerId neighbor's peer ID
+     * @return true if interested
+     */
+    public boolean checkInterestedNeighbot(int peerId)
+    {
+        return interestedNeighbor.get(peerId).get();
     }
 
     /**
@@ -261,7 +312,7 @@ public class Peer
     {
         synchronized (bitfield)
         {
-            return Arrays.copyOf(bitfield, bitfield.length);
+            return bitfield.clone();
         }
     }
 
