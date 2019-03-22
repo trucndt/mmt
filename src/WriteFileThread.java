@@ -26,7 +26,6 @@ public class WriteFileThread implements Runnable
     private final Thread thread;
     private final RandomAccessFile file;
     private final BlockingQueue<PieceInfo> queue = new LinkedBlockingQueue<>();
-    private final AtomicBoolean done = new AtomicBoolean(false);
 
     public WriteFileThread(String filePath) throws FileNotFoundException
     {
@@ -86,11 +85,6 @@ public class WriteFileThread implements Runnable
             {
                 e1.printStackTrace();
             }
-            synchronized (done)
-            {
-                done.set(true);
-                done.notifyAll();
-            }
         }
     }
 
@@ -102,23 +96,10 @@ public class WriteFileThread implements Runnable
         try
         {
             queue.put(new PieceInfo(-1, -1, -1, null));
+            thread.join();
         } catch (InterruptedException e)
         {
             e.printStackTrace();
-        }
-
-        synchronized (done)
-        {
-            while (!done.get())
-            {
-                try
-                {
-                    done.wait();
-                } catch (InterruptedException e)
-                {
-                    e.printStackTrace();
-                }
-            }
         }
     }
 }

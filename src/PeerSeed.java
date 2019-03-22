@@ -11,7 +11,7 @@ public class PeerSeed implements Runnable
     private final RandomAccessFile file;
     private final BlockingQueue<MsgPeerSeed> toSeed;
 
-    private final AtomicBoolean done = new AtomicBoolean(false);
+    private final Thread thread;
 
     PeerSeed(Peer thisPeer, PeerThread peerThread, BlockingQueue<MsgPeerSeed> toSeed) throws IOException
     {
@@ -20,6 +20,12 @@ public class PeerSeed implements Runnable
         this.toSeed = toSeed;
 
         file = new RandomAccessFile(thisPeer.FILE_PATH, "rw");
+        thread = new Thread(this);
+    }
+
+    public void start()
+    {
+        thread.start();
     }
 
     @Override
@@ -68,11 +74,6 @@ public class PeerSeed implements Runnable
         {
             try
             {
-                synchronized (done)
-                {
-                    done.set(true);
-                    done.notifyAll();
-                }
                 file.close();
             } catch (IOException e1)
             {
@@ -171,19 +172,12 @@ public class PeerSeed implements Runnable
             }
         }
 
-        synchronized (done)
+        try
         {
-            while (!done.get())
-            {
-                try
-                {
-                    done.wait();
-                } catch (InterruptedException e)
-                {
-                    e.printStackTrace();
-                }
-            }
+            thread.join();
+        } catch (InterruptedException e)
+        {
+            e.printStackTrace();
         }
-
     }
 }

@@ -99,8 +99,8 @@ public class Log implements Runnable
         try
         {
             queue.put(new LogMsg("", ""));
-            file.close();
-        } catch (InterruptedException | IOException e)
+            thread.join();
+        } catch (InterruptedException e)
         {
             e.printStackTrace();
             thread.interrupt();

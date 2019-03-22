@@ -50,7 +50,7 @@ public class PeerThread implements Runnable
             }
 
             // Create PeerSeed
-            new Thread(peerSeed).start();
+            peerSeed.start();
 
             while (true)
             {
