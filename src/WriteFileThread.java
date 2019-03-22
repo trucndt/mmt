@@ -1,61 +1,62 @@
+import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.io.RandomAccessFile;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class WriteFileThread implements Runnable
 {
-    private static final int MAX_THREADS = 10; // do not open more threads than this
-    private static final AtomicInteger numThreads = new AtomicInteger(0);
+    class PieceInfo
+    {
+        int pieceIdx;
+        int offset;
+        int length;
+        byte[] buffer;
 
-    private final String filePath;
-    private final int pieceIdx;
-    private final int offset;
-    private final int length;
-    private final byte[] buffer;
-    private final Peer thisPeer;
-    private final PeerThread peerThread;
+        public PieceInfo(int pieceIdx, int offset, int length, byte[] buffer)
+        {
+            this.pieceIdx = pieceIdx;
+            this.offset = offset;
+            this.length = length;
+            this.buffer = buffer;
+        }
+    }
+
     private final Thread thread;
+    private final RandomAccessFile file;
+    private final BlockingQueue<PieceInfo> queue = new LinkedBlockingQueue<>();
+    private final AtomicBoolean done = new AtomicBoolean(false);
+
+    public WriteFileThread(String filePath) throws FileNotFoundException
+    {
+        thread = new Thread(this);
+        file = new RandomAccessFile(filePath, "rw");
+    }
 
     /**
-     * Start a thread to write piece to file, then set the corresponding bitfield
-     * @param filePath path to file
+     * Start thread
+     */
+    public void start()
+    {
+        thread.start();
+    }
+
+    /**
+     * Tell thread to write a piece to file
      * @param pieceIdx piece index
      * @param buffer data
      * @param offset the start offset in the data
      * @param length number of bytes to write
-     * @param thisPeer reference to Peer object
-     * @param peerThread reference to PeerThread
      */
-    public WriteFileThread(String filePath, int pieceIdx, byte[] buffer, int offset, int length, Peer thisPeer,
-                           PeerThread peerThread)
+    public void writeFile(int pieceIdx, byte[] buffer, int offset, int length)
     {
-        this.filePath = filePath;
-        this.pieceIdx = pieceIdx;
-        this.offset = offset;
-        this.length = length;
-        this.buffer = buffer;
-        this.thisPeer = thisPeer;
-        this.peerThread = peerThread;
-        thread = new Thread(this);
-
-
-    }
-
-    public void start()
-    {
-        synchronized (numThreads)
+        try
         {
-            while (numThreads.get() >= MAX_THREADS)
-            {
-                try
-                {
-                    numThreads.wait();
-                } catch (InterruptedException e)
-                {
-                    e.printStackTrace();
-                }
-            }
-            thread.start();
-            numThreads.incrementAndGet();
+            queue.put(new PieceInfo(pieceIdx, offset, length, buffer));
+        } catch (InterruptedException e)
+        {
+            e.printStackTrace();
         }
     }
 
@@ -64,25 +65,60 @@ public class WriteFileThread implements Runnable
     {
         try
         {
-            RandomAccessFile file = new RandomAccessFile(filePath, "rw");
-            file.seek(pieceIdx * MMT.PieceSize);
-            file.write(buffer, offset, length);
-            file.close();
-            byte[] bitfield = thisPeer.setAndGetBitfield(pieceIdx, (byte)1);
-
-            Log.println("Peer " + thisPeer.getPeerId() + " has downloaded the piece " + pieceIdx + " from "
-                    + peerThread.getTarget().getPeerId() + ". Now the number of pieces it has is " + Misc.countPieces(bitfield));
-
-            synchronized (numThreads)
+            while (true)
             {
-                numThreads.decrementAndGet();
-                numThreads.notifyAll();
+                PieceInfo p = queue.take();
+                if (p.pieceIdx == -1)
+                    break;
+
+                file.seek(p.pieceIdx * MMT.PieceSize);
+                file.write(p.buffer, p.offset, p.length);
             }
-        } catch (java.io.IOException e)
+        } catch (IOException | InterruptedException e)
         {
             e.printStackTrace();
+        } finally
+        {
+            try
+            {
+                file.close();
+            } catch (IOException e1)
+            {
+                e1.printStackTrace();
+            }
+            synchronized (done)
+            {
+                done.set(true);
+                done.notifyAll();
+            }
         }
     }
 
+    /**
+     * Exit procedure
+     */
+    public void exit()
+    {
+        try
+        {
+            queue.put(new PieceInfo(-1, -1, -1, null));
+        } catch (InterruptedException e)
+        {
+            e.printStackTrace();
+        }
 
+        synchronized (done)
+        {
+            while (!done.get())
+            {
+                try
+                {
+                    done.wait();
+                } catch (InterruptedException e)
+                {
+                    e.printStackTrace();
+                }
+            }
+        }
+    }
 }

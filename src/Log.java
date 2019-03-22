@@ -80,6 +80,17 @@ public class Log implements Runnable
 
     public static void exit()
     {
+        while (queue.size() != 0)
+        {
+            try
+            {
+                Thread.sleep(300);
+            } catch (InterruptedException e)
+            {
+                e.printStackTrace();
+            }
+        }
+
         thread.interrupt();
         try
         {

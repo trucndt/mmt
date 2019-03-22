@@ -247,9 +247,7 @@ public class PeerThread implements Runnable
                 // Write to file
                 byte[] payload = rcvMsg.getPayload();
                 int piece = ByteBuffer.wrap(payload, 0, 4).getInt();
-                WriteFileThread w = new WriteFileThread(thisPeer.FILE_PATH, piece, payload, 4,
-                        payload.length - 4, thisPeer, this);
-                w.start();
+                thisPeer.handleRcvNewPiece(piece, target.getPeerId(), payload, 4, payload.length - 4);
 
                 if (isUnchoke) sendRequest();
                 break;

@@ -1,3 +1,4 @@
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.ConnectException;
 import java.net.Socket;
@@ -27,10 +28,12 @@ public class Peer
 
     private final Map<Integer, Double> downloadRate;
 
+    private final WriteFileThread writeFileThread;
+
     public final String FILE_PATH;
     public final int NUM_OF_PIECES;
 
-    Peer(int peerId, List<PeerInfo> peerList)
+    Peer(int peerId, List<PeerInfo> peerList) throws FileNotFoundException
     {
         /* Initialize peer info */
         this.peerId = peerId;
@@ -94,12 +97,16 @@ public class Peer
 
         // Set file path
         FILE_PATH = "peer_" + peerId + "/" + MMT.FileName;
+
+        writeFileThread = new WriteFileThread(FILE_PATH);
     }
 
     void start() throws InterruptedException, IOException
     {
         ServerListener serverListener = new ServerListener(serverPort, this);
         new Thread(serverListener).start();
+
+        writeFileThread.start(); // start WriteFileThread
 
         // Make connection to other peer
         for (PeerInfo target : peerList)
@@ -136,6 +143,7 @@ public class Peer
         for (PeerThread p : peerThreads) p.exit();
         peerThreads.clear();
         lock_PeerThreads.writeLock().unlock();
+        writeFileThread.exit();
     }
 
     /**
@@ -300,24 +308,28 @@ public class Peer
     }
 
     /**
-     * Set a value in bitfield and notify all PeerSeed
+     * Procedure for receiving a new piece
      * @param idx index of piece
-     * @param val value
-     * @return a copy of bitfield
+     * @param neighborId peer id of neighbor that sent this piece
+     * @param buffer data
+     * @param offset the start offset in the data
+     * @param length number of bytes to write
      */
-    public byte[] setAndGetBitfield(int idx, byte val)
+    public void handleRcvNewPiece(int idx, int neighborId, byte[] buffer, int offset, int length)
     {
-        byte[] copy;
         synchronized (bitfield)
         {
-            bitfield[idx] = val;
-            copy = getBitfield();
+            if (bitfield[idx] == 1)
+                return;
+
+            bitfield[idx] = 1;
             bitfield.notifyAll();
+            Log.println("Peer " + peerId + " has downloaded the piece " + idx + " from "
+                    + neighborId + ". Now the number of pieces it has is " + Misc.countPieces(bitfield));
         }
 
-        if (val == 1) notifyNewPiece(idx);
-
-        return copy;
+        writeFileThread.writeFile(idx, buffer, offset, length);
+        notifyNewPiece(idx);
     }
 
     /**
