@@ -77,7 +77,7 @@ public class Peer
         {
             if (p.getPeerId() != peerId)
             {
-                preferredNeighbor.put(p.getPeerId(), new AtomicBoolean(true));
+                preferredNeighbor.put(p.getPeerId(), new AtomicBoolean(false));
                 interestedNeighbor.put(p.getPeerId(), new AtomicBoolean(false));
             }
         }
@@ -201,32 +201,12 @@ public class Peer
         // Choke the previous one if it is not preferred
         int prevId = optimistUnchoke.get();
         if (!checkPreferredNeighbor(prevId))
-        {
-            lock_PeerThreads.readLock().lock();
-            for (PeerThread p : peerThreads)
-            {
-                if (p.getTarget().getPeerId() == prevId)
-                {
-                    p.sendSeed(MsgPeerSeed.TYPE_CHOKE, null);
-                    break;
-                }
-            }
-            lock_PeerThreads.readLock().unlock();
-        }
+            notifyChokeUnchoke(prevId, MsgPeerSeed.TYPE_CHOKE);
 
         optimistUnchoke.set(peerId);
 
         // notify corresponding peerseed
-        lock_PeerThreads.readLock().lock();
-        for (PeerThread p : peerThreads)
-        {
-            if (p.getTarget().getPeerId() == peerId)
-            {
-                p.sendSeed(MsgPeerSeed.TYPE_UNCHOKE, null);
-                break;
-            }
-        }
-        lock_PeerThreads.readLock().unlock();
+        notifyChokeUnchoke(peerId, MsgPeerSeed.TYPE_UNCHOKE);
     }
 
     /**
@@ -275,8 +255,13 @@ public class Peer
      */
     public void setPreferredNeighbor(int peerId, boolean isPreferred)
     {
+        boolean curPreferred = preferredNeighbor.get(peerId).get();
         preferredNeighbor.get(peerId).set(isPreferred);
-        //TODO sends choke/unchoke
+
+        if (!curPreferred && peerId != getOptimistUnchoke() && isPreferred)
+            notifyChokeUnchoke(peerId, MsgPeerSeed.TYPE_UNCHOKE);
+        else if (curPreferred && !isPreferred && peerId != getOptimistUnchoke())
+            notifyChokeUnchoke(peerId, MsgPeerSeed.TYPE_CHOKE);
     }
 
     /**
@@ -317,7 +302,7 @@ public class Peer
             bitfield[idx] = val;
         }
 
-        if (val == 1) notifyAllPeerSeed(idx, MsgPeerSeed.TYPE_NEW_PIECE);
+        if (val == 1) notifyNewPiece(idx);
 
         synchronized (bitfield)
         {
@@ -340,7 +325,7 @@ public class Peer
             copy = Arrays.copyOf(bitfield, bitfield.length);
         }
 
-        if (val == 1) notifyAllPeerSeed(idx, MsgPeerSeed.TYPE_NEW_PIECE);
+        if (val == 1) notifyNewPiece(idx);
 
         synchronized (bitfield)
         {
@@ -351,16 +336,34 @@ public class Peer
     }
 
     /**
-     * Notify all PeerSeed of some events
-     * @param data data to notify
-     * @param eventType event in MsgPeerSeed
+     * Notify all PeerSeed of having a new piece
+     * @param idx piece index
      */
-    private void notifyAllPeerSeed(Object data, byte eventType)
+    private void notifyNewPiece(int idx)
     {
         lock_PeerThreads.readLock().lock();
         for (PeerThread p : peerThreads)
         {
-            p.sendSeed(eventType, data);
+            p.sendSeed(MsgPeerSeed.TYPE_NEW_PIECE, idx);
+        }
+        lock_PeerThreads.readLock().unlock();
+    }
+
+    /**
+     * Notify the corresponding PeerSeed for sending choke/unchoke
+     * @param neighborId neighbor's peer ID
+     * @param eventType CHOKE/UNCHOKE
+     */
+    private void notifyChokeUnchoke(int neighborId, byte eventType)
+    {
+        lock_PeerThreads.readLock().lock();
+        for (PeerThread p : peerThreads)
+        {
+            if (p.getTarget().getPeerId() == neighborId)
+            {
+                p.sendSeed(eventType, null);
+                break;
+            }
         }
         lock_PeerThreads.readLock().unlock();
     }

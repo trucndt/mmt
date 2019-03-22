@@ -256,7 +256,6 @@ public class PeerThread implements Runnable
 
             case Message.TYPE_INTERESTED:
                 thisPeer.setInterestedNeighbor(target.getPeerId(), true);
-                sendMessage(new Message(Message.TYPE_UNCHOKE, null)); //TODO remove this line
                 break;
 
             case Message.TYPE_NOT_INTERESTED:
