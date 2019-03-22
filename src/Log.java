@@ -9,8 +9,20 @@ import java.util.concurrent.LinkedBlockingQueue;
  */
 public class Log implements Runnable
 {
+    static class LogMsg
+    {
+        String time;
+        String content;
+
+        public LogMsg(String time, String content)
+        {
+            this.time = time;
+            this.content = content;
+        }
+    }
+
     private static FileWriter file;
-    private static BlockingQueue<String> queue = new LinkedBlockingQueue<>();
+    private static BlockingQueue<LogMsg> queue = new LinkedBlockingQueue<>();
     private static Thread thread;
 
     /**
@@ -37,7 +49,7 @@ public class Log implements Runnable
     {
         try
         {
-            queue.put(logIn);
+            queue.put(new LogMsg(getCurrentTime(), logIn));
         } catch (InterruptedException e)
         {
             e.printStackTrace();
@@ -61,43 +73,37 @@ public class Log implements Runnable
         {
             while (true)
             {
-                String logIn = queue.take();
-                file.write("[" + getCurrentTime() + "]: " + logIn + "\n");
+                LogMsg msg = queue.take();
+                if (msg.time.equals(""))
+                    break;
+                file.write("[" + msg.time + "]: " + msg.content + "\n");
                 file.flush();
             }
         } catch (InterruptedException | IOException e)
         {
             e.printStackTrace();
+        } finally
+        {
             try
             {
                 file.close();
-            } catch (IOException e1)
+            } catch (IOException e)
             {
-                e1.printStackTrace();
+                e.printStackTrace();
             }
         }
     }
 
     public static void exit()
     {
-        while (queue.size() != 0)
-        {
-            try
-            {
-                Thread.sleep(300);
-            } catch (InterruptedException e)
-            {
-                e.printStackTrace();
-            }
-        }
-
-        thread.interrupt();
         try
         {
+            queue.put(new LogMsg("", ""));
             file.close();
-        } catch (IOException e)
+        } catch (InterruptedException | IOException e)
         {
             e.printStackTrace();
+            thread.interrupt();
         }
     }
 }
