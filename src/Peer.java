@@ -16,12 +16,11 @@ public class Peer
     private AtomicBoolean hasFile = new AtomicBoolean(false);
 
     private final byte[] bitfield; // yes=1, no=0, requested=2
+    private final Map<Integer, boolean[]> neighborBitfield;
 
     private final Map<Integer, AtomicBoolean> preferredNeighbor;
     private final Map<Integer, AtomicBoolean> interestedNeighbor;
-
     private final AtomicInteger optimistUnchoke;
-    private final Map<Integer, boolean[]> neighborBitfield;
 
     private final LinkedList<PeerThread> peerThreads = new LinkedList<>();
     private final ReadWriteLock lock_PeerThreads = new ReentrantReadWriteLock();
@@ -83,13 +82,7 @@ public class Peer
         }
 
         // Initialize optimistic unchoke
-        int neighborId = peerId;
-        Random r = new Random();
-        while (neighborId == peerId)
-        {
-            neighborId = peerList.get(r.nextInt(peerList.size())).getPeerId();
-        }
-        optimistUnchoke = new AtomicInteger(neighborId);
+        optimistUnchoke = new AtomicInteger(-1);
 
         // Initialize download rate
         downloadRate = new HashMap<>(peerList.size() - 1);
@@ -200,7 +193,7 @@ public class Peer
 
         // Choke the previous one if it is not preferred
         int prevId = optimistUnchoke.get();
-        if (!checkPreferredNeighbor(prevId))
+        if (prevId != -1 && !checkPreferredNeighbor(prevId))
             notifyChokeUnchoke(prevId, MsgPeerSeed.TYPE_CHOKE);
 
         optimistUnchoke.set(peerId);
@@ -300,14 +293,10 @@ public class Peer
         synchronized (bitfield)
         {
             bitfield[idx] = val;
+            bitfield.notifyAll();
         }
 
         if (val == 1) notifyNewPiece(idx);
-
-        synchronized (bitfield)
-        {
-            bitfield.notifyAll();
-        }
     }
 
     /**
@@ -322,15 +311,11 @@ public class Peer
         synchronized (bitfield)
         {
             bitfield[idx] = val;
-            copy = Arrays.copyOf(bitfield, bitfield.length);
+            copy = getBitfield();
+            bitfield.notifyAll();
         }
 
         if (val == 1) notifyNewPiece(idx);
-
-        synchronized (bitfield)
-        {
-            bitfield.notifyAll();
-        }
 
         return copy;
     }
@@ -407,29 +392,28 @@ public class Peer
      */
     public int selectNewPieceFromNeighbor(int neighborId)
     {
-        LinkedList<Integer> notIdx = new LinkedList<>();
+        LinkedList<Integer> hasIdx = new LinkedList<>();
         Random r = new Random();
+
+        synchronized (neighborBitfield)
+        {
+            final boolean[] bf = neighborBitfield.get(neighborId);
+            for (int i = 0; i < bf.length; i++)
+                if (bf[i]) hasIdx.add(i); //save pieces index of neighbor
+        }
+
+        ArrayList<Integer> sameIdx = new ArrayList<>(hasIdx.size());
 
         synchronized (bitfield)
         {
-            // save all missing piece indexes
-            for (int i = 0; i < bitfield.length; i++)
-                if (bitfield[i] == 0) notIdx.add(i);
+            // check for valid pieces index
+            for (int i : hasIdx)
+                if (bitfield[i] == 0) sameIdx.add(i);
 
-            ArrayList<Integer> sameIdx = new ArrayList<>(notIdx.size());
-            synchronized (neighborBitfield)
-            {
-                for (int j : notIdx)
-                    if (neighborBitfield.get(neighborId)[j]) sameIdx.add(j); //save valid indexes
-
-                if (sameIdx.size() == 0)
-                    return -1;
-
-                int idx = sameIdx.get(r.nextInt(sameIdx.size()));
-                bitfield[idx] = 2;
-                return idx;
-            }
-
+            if (sameIdx.size() == 0) return -1;
+            int idx = sameIdx.get(r.nextInt(sameIdx.size()));
+            bitfield[idx] = 2;
+            return idx;
         }
     }
 
