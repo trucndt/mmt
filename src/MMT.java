@@ -131,6 +131,11 @@ public class MMT
         return peerInfoList;
     }
 
+    /**
+     * Create peer subdirectory if not exist
+     * @param peerId this peer ID
+     * @throws IOException
+     */
     private static void createPeerDir(int peerId) throws IOException
     {
         File peerDir = new File("peer_" + peerId);

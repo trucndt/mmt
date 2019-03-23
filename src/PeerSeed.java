@@ -23,6 +23,9 @@ public class PeerSeed implements Runnable
         thread = new Thread(this);
     }
 
+    /**
+     * Start this thread
+     */
     public void start()
     {
         thread.start();
@@ -83,9 +86,11 @@ public class PeerSeed implements Runnable
         }
     }
 
-
-
-    private void sendHave(int idx) throws IOException
+    /**
+     * Send HAVE message
+     * @param idx index of piece
+     */
+    private void sendHave(int idx)
     {
         /* send message */
         byte[] payload = Misc.intToByteArray(idx);

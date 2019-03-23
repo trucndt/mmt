@@ -41,6 +41,10 @@ public class ServerListener implements Runnable
         }
     }
 
+    /**
+     * Exit procedure
+     * @throws IOException
+     */
     public void exit() throws IOException
     {
         welcomeSocket.close();

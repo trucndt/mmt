@@ -94,6 +94,9 @@ public class Log implements Runnable
         }
     }
 
+    /**
+     * Exit thread procedure
+     */
     public static void exit()
     {
         try

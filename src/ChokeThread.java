@@ -59,6 +59,7 @@ public class ChokeThread implements Runnable
                 for (int i = 0; i < validId.size(); i++)
                     thisPeer.setPreferredNeighbor(validId.get(i), isPreferred[i]);
 
+                if (thread.isInterrupted()) break;
             } catch (InterruptedException e)
             {
                 e.printStackTrace();
@@ -88,12 +89,18 @@ public class ChokeThread implements Runnable
         return highestIdx;
     }
 
+    /**
+     * Start this thread and the optimisticChoke
+     */
     public void start()
     {
         thread.start();
         optimisticChokeThread.start();
     }
 
+    /**
+     * Exit procedure
+     */
     public void exit()
     {
         thread.interrupt();
@@ -140,6 +147,8 @@ class OptimisticChokeThread implements Runnable
                 }
 
                 if (neighborId != -1) thisPeer.setOptimistUnchoke(neighborId);
+
+                if (thread.isInterrupted()) break;
             } catch (InterruptedException e)
             {
                 e.printStackTrace();
@@ -148,11 +157,17 @@ class OptimisticChokeThread implements Runnable
         }
     }
 
+    /**
+     * Start this thread
+     */
     public void start()
     {
         thread.start();
     }
 
+    /**
+     * Exit procedure
+     */
     public void exit()
     {
         thread.interrupt();
