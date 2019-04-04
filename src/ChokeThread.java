@@ -41,13 +41,21 @@ public class ChokeThread implements Runnable
                 ArrayList<Integer> highestIdx;
                 if (!thisPeer.getHasFile())
                 {
+                    // get indexes of top k highest download rates
                     highestIdx = findKHighestRate(rate, MMT.NumOfPreferredNeighbors);
                 }
                 else
                 {
+                    // select random indexes
                     Random r = new Random();
-                    //TODO remove the following line and select random index
-                    highestIdx = findKHighestRate(rate, MMT.NumOfPreferredNeighbors);
+                    highestIdx = new ArrayList<>(MMT.NumOfPreferredNeighbors);
+
+                    while (highestIdx.size() < MMT.NumOfPreferredNeighbors)
+                    {
+                        int idx = r.nextInt(validId.size());
+                        if (!highestIdx.contains(idx))
+                            highestIdx.add(idx);
+                    }
                 }
 
                 // update preferred neighbor
@@ -71,22 +79,90 @@ public class ChokeThread implements Runnable
     /**
      * Find indexes of K highest rates
      * @param rate array of rates
-     * @param K K
+     * @param k K
      * @return list of indexes of K highest rates
      */
-    private ArrayList<Integer> findKHighestRate(ArrayList<Double> rate, int K)
+    private ArrayList<Integer> findKHighestRate(ArrayList<Double> rate, int k)
     {
-        ArrayList<Integer> highestIdx = new ArrayList<>(K);
+        Double[] arr = rate.toArray(new Double[0]);
 
-        //TODO: comment the following block, put K largest indexes into largestIdx
+        ArrayList<Integer> result = new ArrayList<>(k);
+        int n = arr.length;
+        // Build index array
+
+        int[] arr_index = new int[n];
+        for (int i = 0; i < n; i++)
         {
-            for (int i = 0; i < rate.size(); i++)
+            arr_index[i] = i;
+        }
+
+        if (n > k)
+        {
+            // Build heap (rearrange array)
+            for (int i = n / 2 - 1; i >= 0; i--)
+                heapify(arr, arr_index, n, i);
+
+            // One by one extract an element from heap
+            for (int i = n - 1; i >= n - k; i--)
             {
-                highestIdx.add(i);
+                //            result.add(arr[0]);
+                result.add(arr_index[0]);
+                // Move current root to end
+                Double temp = arr[0];
+                arr[0] = arr[i];
+                arr[i] = temp;
+                int temp_index = arr_index[0];
+                arr_index[0] = arr_index[i];
+                arr_index[i] = temp_index;
+
+                // call max heapify on the reduced heap
+                heapify(arr, arr_index, i, 0);
+            }
+        } else
+        {
+            for (int i = n - 1; i >= 0; i--)
+            {
+                result.add(arr_index[i]);
             }
         }
 
-        return highestIdx;
+        return result;
+    }
+
+    /**
+     * heapify a subtree rooted with node i which is an index in arr[]
+     * @param arr heap
+     * @param arr_index
+     * @param n size of heap
+     * @param i root node index
+     */
+    private static void heapify(Double[] arr, int[] arr_index, int n, int i)
+    {
+        int largest = i; // Initialize largest as root
+        int l = 2 * i + 1; // left = 2*i + 1
+        int r = 2 * i + 2; // right = 2*i + 2
+
+        // If left child is larger than root
+        if (l < n && arr[l] > arr[largest])
+            largest = l;
+
+        // If right child is larger than largest so far
+        if (r < n && arr[r] > arr[largest])
+            largest = r;
+
+        // If largest is not root
+        if (largest != i)
+        {
+            Double swap = arr[i];
+            arr[i] = arr[largest];
+            arr[largest] = swap;
+            int swap_index = arr_index[i];
+            arr_index[i] = arr_index[largest];
+            arr_index[largest] = swap_index;
+
+            // Recursively heapify the affected sub-tree
+            heapify(arr, arr_index, n, largest);
+        }
     }
 
     /**

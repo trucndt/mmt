@@ -279,6 +279,19 @@ public class Peer
     }
 
     /**
+     * Set a value in download rate of a peer
+     * @param peerId peer ID
+     * @param rate download rate
+     */
+    public void setDownloadRate(int peerId, Double rate)
+    {
+        synchronized (downloadRate.get(peerId))
+        {
+            downloadRate.put(peerId,rate);
+        }
+    }
+
+    /**
      * Check if we already have a piece
      * @param idx index of piece
      * @return true if already have, false otherwise

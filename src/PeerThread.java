@@ -3,7 +3,6 @@ import java.net.Socket;
 import java.nio.ByteBuffer;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 public class PeerThread implements Runnable
 {
@@ -61,9 +60,15 @@ public class PeerThread implements Runnable
                 int msgLen = ByteBuffer.wrap(msgLenType, 0, 4).getInt() - 1; // not including message type
                 byte msgType = msgLenType[4];
 
-                // receive payload
                 byte[] payload = new byte[msgLen];
-                fromNeighbor.readFully(payload);
+                if (msgType == Message.TYPE_PIECE)
+                {
+                    double downloadRate = readFullyAndGetRate(payload);
+                    thisPeer.setDownloadRate(target.getPeerId(), downloadRate);
+                } else
+                {
+                    fromNeighbor.readFully(payload);
+                }
 
                 processReceivedMessage(new Message(msgType, payload));
             }
@@ -77,6 +82,7 @@ public class PeerThread implements Runnable
             try
             {
                 socket.close();
+                peerSeed.exit();
             } catch (IOException e1)
             {
                 e1.printStackTrace();
@@ -349,6 +355,32 @@ public class PeerThread implements Runnable
             if ((i + 1) % 8 == 0) byteIdx++;
         }
         return bitfield;
+    }
+
+    /**
+     * Read data from socket and return download rate
+     * @param buffer the buffer into which the data is read
+     * @return download rate
+     * @throws IOException
+     */
+    private double readFullyAndGetRate(byte[] buffer) throws IOException
+    {
+        long start = System.nanoTime();
+        fromNeighbor.readFully(buffer);
+        long cost = System.nanoTime() - start;
+
+        double estRate = 0.875;
+        double downloadRate;
+        double estimateDownloadRate = 0.0;
+
+        if (cost > 0)
+        {
+            downloadRate = buffer.length * 1.0 / cost;
+            //TODO: do we need this?
+            estimateDownloadRate = estRate*thisPeer.getDownloadRate(target.getPeerId()) + (1-estRate)*downloadRate;
+        }
+
+        return estimateDownloadRate;
     }
 
     public PeerInfo getTarget()
