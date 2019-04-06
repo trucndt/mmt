@@ -41,6 +41,7 @@ public class RequestTimedOutThread implements Runnable
             {
                 Thread.sleep(1000);
                 long curTime = System.currentTimeMillis();
+                LinkedList<Integer> timeout = new LinkedList<>();
 
                 synchronized (pieceIdxList)
                 {
@@ -50,11 +51,14 @@ public class RequestTimedOutThread implements Runnable
                         RequestInfo r = it.next();
                         if (curTime - r.timestamp_ms >= MAX_TIMEOUT_SECOND*1000)
                         {
-                            peer.requestTimeoutHandle(r.pieceIdx);
+                            timeout.add(r.pieceIdx);
                             it.remove();
                         }
                     }
                 }
+
+                for (Integer idx : timeout)
+                    peer.requestTimeoutHandle(idx);
 
             } catch (InterruptedException e)
             {

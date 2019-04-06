@@ -452,6 +452,7 @@ public class Peer
 
         ArrayList<Integer> sameIdx = new ArrayList<>(hasIdx.size());
 
+        int idx = -1;
         synchronized (bitfield)
         {
             // check for valid pieces index
@@ -461,11 +462,12 @@ public class Peer
             if (sameIdx.size() == 0) return -1;
 
             // Select a random one
-            int idx = sameIdx.get(r.nextInt(sameIdx.size()));
+            idx = sameIdx.get(r.nextInt(sameIdx.size()));
             bitfield[idx] = 2;
-            requestTimedOutThread.addRequestingPiece(idx); // monitoring timeout
-            return idx;
         }
+
+        requestTimedOutThread.addRequestingPiece(idx); // monitoring timeout
+        return idx;
     }
 
     /**

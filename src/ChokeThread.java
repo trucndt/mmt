@@ -16,7 +16,7 @@ public class ChokeThread implements Runnable
     @Override
     public void run()
     {
-        while (true)
+        while (!thread.isInterrupted())
         {
             try
             {
@@ -79,7 +79,6 @@ public class ChokeThread implements Runnable
 
                 Log.println("Peer "+ thisPeer.getPeerId() + " has the preferred neighbors " + logPreferred.substring(2));
 
-                if (thread.isInterrupted()) break;
             } catch (InterruptedException e)
             {
                 e.printStackTrace();
@@ -219,7 +218,7 @@ class OptimisticChokeThread implements Runnable
     public void run()
     {
         List<PeerInfo> peerList = thisPeer.getPeerList();
-        while (true)
+        while (!thread.isInterrupted())
         {
             try
             {
@@ -242,8 +241,6 @@ class OptimisticChokeThread implements Runnable
                 }
 
                 if (neighborId != -1) thisPeer.setOptimistUnchoke(neighborId);
-
-                if (thread.isInterrupted()) break;
             } catch (InterruptedException e)
             {
                 e.printStackTrace();
