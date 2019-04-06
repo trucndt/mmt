@@ -38,19 +38,23 @@ public class ChokeThread implements Runnable
                     }
                 }
 
+                if (validId.size() == 0) continue;
+
+                int numOfNeighborsToSelect = Math.min(MMT.NumOfPreferredNeighbors, validId.size());
+
                 ArrayList<Integer> highestIdx;
                 if (!thisPeer.getHasFile())
                 {
                     // get indexes of top k highest download rates
-                    highestIdx = findKHighestRate(rate, MMT.NumOfPreferredNeighbors);
+                    highestIdx = findKHighestRate(rate, numOfNeighborsToSelect);
                 }
                 else
                 {
                     // select random indexes
                     Random r = new Random();
-                    highestIdx = new ArrayList<>(MMT.NumOfPreferredNeighbors);
+                    highestIdx = new ArrayList<>(numOfNeighborsToSelect);
 
-                    while (highestIdx.size() < MMT.NumOfPreferredNeighbors)
+                    while (highestIdx.size() < numOfNeighborsToSelect)
                     {
                         int idx = r.nextInt(validId.size());
                         if (!highestIdx.contains(idx))
@@ -64,8 +68,16 @@ public class ChokeThread implements Runnable
                 for (int idx : highestIdx)
                     isPreferred[idx] = true;
 
+                StringBuilder logPreferred = new StringBuilder();
                 for (int i = 0; i < validId.size(); i++)
+                {
                     thisPeer.setPreferredNeighbor(validId.get(i), isPreferred[i]);
+                    if (isPreferred[i])
+                        logPreferred.append(", ").append(validId.get(i));
+                    Log.println("Neighbor " + validId.get(i) + " is preferred: " + isPreferred[i]);
+                }
+
+                Log.println("Peer "+ thisPeer.getPeerId() + " has the preferred neighbors " + logPreferred.substring(2));
 
                 if (thread.isInterrupted()) break;
             } catch (InterruptedException e)
@@ -181,6 +193,13 @@ public class ChokeThread implements Runnable
     {
         thread.interrupt();
         optimisticChokeThread.exit();
+        try
+        {
+            thread.join();
+        } catch (InterruptedException e)
+        {
+            e.printStackTrace();
+        }
     }
 }
 
@@ -247,5 +266,12 @@ class OptimisticChokeThread implements Runnable
     public void exit()
     {
         thread.interrupt();
+        try
+        {
+            thread.join();
+        } catch (InterruptedException e)
+        {
+            e.printStackTrace();
+        }
     }
 }

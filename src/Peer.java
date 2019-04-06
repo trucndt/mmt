@@ -29,6 +29,7 @@ public class Peer
     private final Map<Integer, Double> downloadRate;
 
     private final WriteFileThread writeFileThread;
+    private final RequestTimedOutThread requestTimedOutThread;
 
     public final String FILE_PATH;
     public final int NUM_OF_PIECES;
@@ -99,6 +100,7 @@ public class Peer
         FILE_PATH = "peer_" + peerId + "/" + MMT.FileName;
 
         writeFileThread = new WriteFileThread(FILE_PATH);
+        requestTimedOutThread = new RequestTimedOutThread(this);
     }
 
     void start() throws InterruptedException, IOException
@@ -107,6 +109,7 @@ public class Peer
         new Thread(serverListener).start();
 
         writeFileThread.start(); // start WriteFileThread
+        requestTimedOutThread.start(); // start RequestTimedOutThread
 
         // Make connection to other peer
         for (PeerInfo target : peerList)
@@ -130,19 +133,20 @@ public class Peer
         if (!hasFile.get())
         {
             waitUntilBitfieldFull();
+            Log.println("Peer " + this.peerId + " has downloaded the complete file");
+            hasFile.set(true);
         }
-
-        hasFile.set(true);
 
         waitUntilNeighborBitfieldFull();
 
-        // close all sockets
+        // close all sockets and exit threads
         chokeThread.exit();
         serverListener.exit();
         lock_PeerThreads.writeLock().lock();
         for (PeerThread p : peerThreads) p.exit();
         peerThreads.clear();
         lock_PeerThreads.writeLock().unlock();
+        requestTimedOutThread.exit();
         writeFileThread.exit();
     }
 
@@ -198,6 +202,7 @@ public class Peer
     public void setOptimistUnchoke(int peerId)
     {
         System.out.println("Optimistic unchoke " + peerId);
+        Log.println("Peer " + this.peerId + " has the optimistically unchoked neighbor " + peerId);
 
         // Choke the previous one if it is not preferred
         int prevId = optimistUnchoke.get();
@@ -305,19 +310,19 @@ public class Peer
     }
 
     /**
-     * Set a value in bitfield and notify all PeerSeed
+     * When a requested piece is timed out
      * @param idx index of piece
-     * @param val value
      */
-    public void setBitfield(int idx, byte val)
+    public void requestTimeoutHandle(int idx)
     {
         synchronized (bitfield)
         {
-            bitfield[idx] = val;
-            bitfield.notifyAll();
+            if (bitfield[idx] == 2) // if it is still being requested
+            {
+                bitfield[idx] = 0;
+                Log.println("Request timed out: " + idx);
+            }
         }
-
-        if (val == 1) notifyNewPiece(idx);
     }
 
     /**
@@ -411,9 +416,15 @@ public class Peer
     }
 
     /**
-     * Randomly select a piece that neighbor has but I don't
+     * Randomly select a piece that neighbor has but I don't and report whether I should still be interested in this
+     * neighbor
      * @param neighborId peer ID of neighbor
-     * @return The piece index or -1 if can't select
+     * @return
+     * <ul>
+     *     <li>The piece index</li>
+     *     <li>-1 if can't select but should be still interested</li>
+     *     <li>-2 if not interested</li>
+     * </ul>
      */
     public int selectNewPieceFromNeighbor(int neighborId)
     {
@@ -431,13 +442,18 @@ public class Peer
 
         synchronized (bitfield)
         {
+            int potentialInterested = -2;
             // check for valid pieces index
             for (int i : hasIdx)
                 if (bitfield[i] == 0) sameIdx.add(i);
+                else if (bitfield[i] == 2)  potentialInterested = -1; // Still interested in this neighbor
 
-            if (sameIdx.size() == 0) return -1;
+            if (sameIdx.size() == 0) return potentialInterested;
+
+            // Select a random one
             int idx = sameIdx.get(r.nextInt(sameIdx.size()));
             bitfield[idx] = 2;
+            requestTimedOutThread.addRequestingPiece(idx); // monitoring timeout
             return idx;
         }
     }

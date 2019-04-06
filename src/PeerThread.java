@@ -233,7 +233,8 @@ public class PeerThread implements Runnable
                 int index = Misc.byteArrayToInt(rcvMsg.getPayload());
                 boolean exist = thisPeer.checkPiece(index);
                 thisPeer.setNeighborBitfield(target.getPeerId(),index);
-                System.out.println("Get: Receive HAVE" + index + " from " + target.getPeerId());
+                Log.println("Peer " + thisPeer.getPeerId() + " received the 'have' message from " + target.getPeerId() +
+                        " for the piece " + index);
 
                 if (!exist)
                     sendMessage(new Message(Message.TYPE_INTERESTED, null));
@@ -242,11 +243,13 @@ public class PeerThread implements Runnable
 
             case Message.TYPE_UNCHOKE:
                 isUnchoke = true;
+                Log.println("Peer " + thisPeer.getPeerId() + " is unchoked by " + target.getPeerId());
                 sendRequest();
                 break;
 
             case Message.TYPE_CHOKE:
                 isUnchoke = false;
+                Log.println("Peer " + thisPeer.getPeerId() + " is choked by " + target.getPeerId());
                 break;
 
             case Message.TYPE_PIECE:
@@ -260,10 +263,14 @@ public class PeerThread implements Runnable
 
             case Message.TYPE_INTERESTED:
                 thisPeer.setInterestedNeighbor(target.getPeerId(), true);
+                Log.println("Peer " + thisPeer.getPeerId() + " received the 'interested' message from " +
+                        target.getPeerId());
                 break;
 
             case Message.TYPE_NOT_INTERESTED:
                 thisPeer.setInterestedNeighbor(target.getPeerId(), false);
+                Log.println("Peer " + thisPeer.getPeerId() + " received the 'not interested' message from " +
+                        target.getPeerId());
                 break;
 
             default: // send to PeerSeed other messages
@@ -326,16 +333,17 @@ public class PeerThread implements Runnable
         if (thisPeer.getHasFile()) return;
 
         int pieceIdx = thisPeer.selectNewPieceFromNeighbor(target.getPeerId());
-        if (pieceIdx == -1)
+        if (pieceIdx < 0)
         {
             // send not interested
-            sendMessage(new Message(Message.TYPE_NOT_INTERESTED, null));
+            if (pieceIdx == -2)
+                sendMessage(new Message(Message.TYPE_NOT_INTERESTED, null));
             return;
         }
 
         // form request msg
         sendMessage(new Message(Message.TYPE_REQUEST, Misc.intToByteArray(pieceIdx)));
-//        thisPeer.setBitfield(pieceIdx, (byte)2); //TODO: handle the case when not receiving PIECE
+        Log.println("Request " + pieceIdx + " from neighbor " + target.getPeerId());
     }
 
     /**
@@ -365,6 +373,7 @@ public class PeerThread implements Runnable
      */
     private double readFullyAndGetRate(byte[] buffer) throws IOException
     {
+        // TODO: nanoTime doesn't capture wall-clock time
         long start = System.nanoTime();
         fromNeighbor.readFully(buffer);
         long cost = System.nanoTime() - start;
@@ -378,6 +387,7 @@ public class PeerThread implements Runnable
             downloadRate = buffer.length * 1.0 / cost;
             //TODO: do we need this?
             estimateDownloadRate = estRate*thisPeer.getDownloadRate(target.getPeerId()) + (1-estRate)*downloadRate;
+            Log.println("Rate of neighbor " + target.getPeerId() + " is: " + estimateDownloadRate + '\t' + cost);
         }
 
         return estimateDownloadRate;
