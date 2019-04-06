@@ -13,11 +13,19 @@ public class PeerSeed implements Runnable
 
     private final Thread thread;
 
+    /**
+     * Keep a local bitfield and update whenever it has to send the HAVE message.
+     * The purpose of this variable is to make sure that when checkNotInterested() is executed, it reads the exact current
+     * state of bitfield
+     */
+    private final byte[] localBitfield;
+
     PeerSeed(Peer thisPeer, PeerThread peerThread, BlockingQueue<MsgPeerSeed> toSeed) throws IOException
     {
         this.thisPeer = thisPeer;
         this.peerThread = peerThread;
         this.toSeed = toSeed;
+        localBitfield = thisPeer.getBitfield();
 
         file = new RandomAccessFile(thisPeer.FILE_PATH, "rw");
         thread = new Thread(this);
@@ -54,6 +62,8 @@ public class PeerSeed implements Runnable
 
                     case MsgPeerSeed.TYPE_NEW_PIECE:
                         sendHave((int)msg.getContent());
+                        if (checkNotInterested())
+                            peerThread.sendMessage(new Message(Message.TYPE_NOT_INTERESTED, null));
                         break;
 
                     case MsgPeerSeed.TYPE_UNCHOKE:
@@ -92,10 +102,28 @@ public class PeerSeed implements Runnable
      */
     private void sendHave(int idx)
     {
+        localBitfield[idx] = 1;
         /* send message */
         byte[] payload = Misc.intToByteArray(idx);
         System.out.println("Sending HAVE " + idx + " to " + peerThread.getTarget().getPeerId());
         peerThread.sendMessage(new Message(Message.TYPE_HAVE, payload));
+    }
+
+    /**
+     * Check whether or not to send 'not interested' to the target
+     * @return true if should send not interested, false otherwise
+     */
+    private boolean checkNotInterested()
+    {
+        boolean[] neighborBitfield = thisPeer.getNeighborBitfield(peerThread.getTarget().getPeerId());
+
+        for (int i = 0; i < localBitfield.length; i++)
+        {
+            if (localBitfield[i] != 1 && neighborBitfield[i])
+                return false;
+        }
+
+        return true;
     }
 
     /**
@@ -105,14 +133,33 @@ public class PeerSeed implements Runnable
      */
     private void processReceivedMessage(Message rcvMsg) throws IOException
     {
-        if (rcvMsg.getType() == Message.TYPE_REQUEST)
+        switch (rcvMsg.getType())
         {
-            if (!thisPeer.checkPreferredNeighbor(peerThread.getTarget().getPeerId())
-                    && thisPeer.getOptimistUnchoke() != peerThread.getTarget().getPeerId()) return;
+            case Message.TYPE_REQUEST:
+                if (!thisPeer.checkPreferredNeighbor(peerThread.getTarget().getPeerId())
+                        && thisPeer.getOptimistUnchoke() != peerThread.getTarget().getPeerId()) return;
 
-            int pieceIdx = Misc.byteArrayToInt(rcvMsg.getPayload());
-            System.out.println("Seed: Piece requested: " + pieceIdx);
-            sendPiece(pieceIdx);
+                int pieceIdx = Misc.byteArrayToInt(rcvMsg.getPayload());
+                System.out.println("Seed: Piece requested: " + pieceIdx);
+                sendPiece(pieceIdx);
+                break;
+
+            // HAVE should be handled by PeerSeed to prevent race condition of the neighbor's bitfield
+            // and the (not)interested messages
+            case Message.TYPE_HAVE:
+                int index = Misc.byteArrayToInt(rcvMsg.getPayload());
+                boolean exist = thisPeer.checkPiece(index);
+                thisPeer.setNeighborBitfield(peerThread.getTarget().getPeerId(),index);
+                Log.println("Peer " + thisPeer.getPeerId() + " received the 'have' message from " +
+                        peerThread.getTarget().getPeerId() + " for the piece " + index);
+
+                if (!exist)
+                    peerThread.sendMessage(new Message(Message.TYPE_INTERESTED, null));
+
+                break;
+
+            default:
+                System.out.println("PeerSeed receives invalid message");
         }
     }
 

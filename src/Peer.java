@@ -395,6 +395,19 @@ public class Peer
         }
     }
 
+    /**
+     * Getter for neighborbitfield
+     * @param neighborId neighbor id
+     * @return copy of the neighbor's bitfield
+     */
+    public boolean[] getNeighborBitfield(int neighborId)
+    {
+        synchronized (neighborBitfield)
+        {
+            return neighborBitfield.get(neighborId).clone();
+        }
+    }
+
 
     List<PeerInfo> getPeerList()
     {
@@ -422,8 +435,7 @@ public class Peer
      * @return
      * <ul>
      *     <li>The piece index</li>
-     *     <li>-1 if can't select but should be still interested</li>
-     *     <li>-2 if not interested</li>
+     *     <li>-1 if can't select</li>
      * </ul>
      */
     public int selectNewPieceFromNeighbor(int neighborId)
@@ -442,13 +454,11 @@ public class Peer
 
         synchronized (bitfield)
         {
-            int potentialInterested = -2;
             // check for valid pieces index
             for (int i : hasIdx)
                 if (bitfield[i] == 0) sameIdx.add(i);
-                else if (bitfield[i] == 2)  potentialInterested = -1; // Still interested in this neighbor
 
-            if (sameIdx.size() == 0) return potentialInterested;
+            if (sameIdx.size() == 0) return -1;
 
             // Select a random one
             int idx = sameIdx.get(r.nextInt(sameIdx.size()));

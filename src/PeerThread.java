@@ -228,18 +228,19 @@ public class PeerThread implements Runnable
                 sendMessage(new Message(Message.TYPE_NOT_INTERESTED, null));
                 break;
 
-            case Message.TYPE_HAVE:
-                //handle have
-                int index = Misc.byteArrayToInt(rcvMsg.getPayload());
-                boolean exist = thisPeer.checkPiece(index);
-                thisPeer.setNeighborBitfield(target.getPeerId(),index);
-                Log.println("Peer " + thisPeer.getPeerId() + " received the 'have' message from " + target.getPeerId() +
-                        " for the piece " + index);
-
-                if (!exist)
-                    sendMessage(new Message(Message.TYPE_INTERESTED, null));
-
-                break;
+            // HAVE should be handled by PeerSeed to prevent from prematurely sending Not interested
+//            case Message.TYPE_HAVE:
+//                //handle have
+//                int index = Misc.byteArrayToInt(rcvMsg.getPayload());
+//                boolean exist = thisPeer.checkPiece(index);
+//                thisPeer.setNeighborBitfield(target.getPeerId(),index);
+//                Log.println("Peer " + thisPeer.getPeerId() + " received the 'have' message from " + target.getPeerId() +
+//                        " for the piece " + index);
+//
+//                if (!exist)
+//                    sendMessage(new Message(Message.TYPE_INTERESTED, null));
+//
+//                break;
 
             case Message.TYPE_UNCHOKE:
                 isUnchoke = true;
@@ -334,12 +335,7 @@ public class PeerThread implements Runnable
 
         int pieceIdx = thisPeer.selectNewPieceFromNeighbor(target.getPeerId());
         if (pieceIdx < 0)
-        {
-            // send not interested
-            if (pieceIdx == -2)
-                sendMessage(new Message(Message.TYPE_NOT_INTERESTED, null));
             return;
-        }
 
         // form request msg
         sendMessage(new Message(Message.TYPE_REQUEST, Misc.intToByteArray(pieceIdx)));
