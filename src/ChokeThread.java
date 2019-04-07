@@ -36,6 +36,10 @@ public class ChokeThread implements Runnable
                         rate.add(thisPeer.getDownloadRate(id));
                         validId.add(id);
                     }
+                    else if (id != thisPeer.getPeerId()) // choke those not interested
+                    {
+                        thisPeer.setPreferredNeighbor(id, false);
+                    }
                 }
 
                 if (validId.size() == 0) continue;
