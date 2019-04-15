@@ -5,6 +5,8 @@ public class MsgPeerSeed
     static final byte TYPE_EXIT = 2;
     static final byte TYPE_UNCHOKE = 3;
     static final byte TYPE_CHOKE = 4;
+    static final byte TYPE_TIMEOUT = 5;
+    static final byte TYPE_REQUEST = 6;
 
     private final byte eventType;
     private final Object content;

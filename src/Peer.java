@@ -316,14 +316,19 @@ public class Peer
      */
     public void requestTimeoutHandle(int idx)
     {
+        boolean notify = false;
         synchronized (bitfield)
         {
             if (bitfield[idx] == 2) // if it is still being requested
             {
                 bitfield[idx] = 0;
+                notify = true;
                 Log.println("Request timed out: " + idx);
             }
         }
+
+        if (notify)
+            notifyTimeout(idx);
     }
 
     /**
@@ -349,6 +354,20 @@ public class Peer
 
         writeFileThread.writeFile(idx, buffer, offset, length);
         notifyNewPiece(idx);
+    }
+
+    /**
+     * Notify all PeerSeed of timeout
+     * @param idx piece index
+     */
+    private void notifyTimeout(int idx)
+    {
+        lock_PeerThreads.readLock().lock();
+        for (PeerThread p : peerThreads)
+        {
+            p.sendSeed(MsgPeerSeed.TYPE_TIMEOUT, idx);
+        }
+        lock_PeerThreads.readLock().unlock();
     }
 
     /**

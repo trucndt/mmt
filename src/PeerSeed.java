@@ -11,6 +11,7 @@ public class PeerSeed implements Runnable
     private final BlockingQueue<MsgPeerSeed> toSeed;
 
     private final Thread thread;
+    boolean requesting;
 
     /**
      * Keep a local bitfield and update whenever it has to send the HAVE message.
@@ -71,6 +72,15 @@ public class PeerSeed implements Runnable
 
                     case MsgPeerSeed.TYPE_CHOKE:
                         peerThread.sendMessage(new Message(Message.TYPE_CHOKE, null));
+                        break;
+
+                    case MsgPeerSeed.TYPE_TIMEOUT:
+                        if (!requesting)
+                            sendRequest();
+                        break;
+
+                    case MsgPeerSeed.TYPE_REQUEST:
+                        sendRequest();
                         break;
 
                     case MsgPeerSeed.TYPE_EXIT:
@@ -153,7 +163,11 @@ public class PeerSeed implements Runnable
                         peerThread.getTarget().getPeerId() + " for the piece " + index);
 
                 if (!exist)
+                {
                     peerThread.sendMessage(new Message(Message.TYPE_INTERESTED, null));
+                    if (!requesting)
+                        sendRequest();
+                }
 
                 break;
 
@@ -182,6 +196,29 @@ public class PeerSeed implements Runnable
 
         // Form PIECE msg
         peerThread.sendMessage(new Message(Message.TYPE_PIECE, buffer));
+    }
+
+    /**
+     * Find missing piece and send REQUEST msg
+     */
+    private void sendRequest()
+    {
+        requesting = false;
+        if (thisPeer.getHasFile() || !peerThread.isUnchoke())
+        {
+            return;
+        }
+
+        int pieceIdx = thisPeer.selectNewPieceFromNeighbor(peerThread.getTarget().getPeerId());
+        if (pieceIdx < 0)
+        {
+            return;
+        }
+
+        // form request msg
+        peerThread.sendMessage(new Message(Message.TYPE_REQUEST, Misc.intToByteArray(pieceIdx)));
+        Log.println("Request " + pieceIdx + " from neighbor " + peerThread.getTarget().getPeerId());
+        requesting = true;
     }
 
     /**

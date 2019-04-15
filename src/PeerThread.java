@@ -3,6 +3,7 @@ import java.net.Socket;
 import java.nio.ByteBuffer;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class PeerThread implements Runnable
 {
@@ -11,7 +12,7 @@ public class PeerThread implements Runnable
     private Socket socket;
     private boolean initiator;
 
-    private boolean isUnchoke;
+    private final AtomicBoolean isUnchoke;
 
     private final DataOutputStream toNeighbor;
     private final DataInputStream fromNeighbor;
@@ -33,6 +34,7 @@ public class PeerThread implements Runnable
         toSeed = new LinkedBlockingQueue<>();
 
         peerSeed = new PeerSeed(thisPeer, this, toSeed);
+        isUnchoke = new AtomicBoolean(false);
     }
 
     @Override
@@ -231,25 +233,23 @@ public class PeerThread implements Runnable
             // HAVE should be handled by PeerSeed to prevent from prematurely sending Not interested
 //            case Message.TYPE_HAVE:
 //                //handle have
+//                sendSeed(MsgPeerSeed.TYPE_MSG, rcvMsg);
 //                int index = Misc.byteArrayToInt(rcvMsg.getPayload());
 //                boolean exist = thisPeer.checkPiece(index);
-//                thisPeer.setNeighborBitfield(target.getPeerId(),index);
-//                Log.println("Peer " + thisPeer.getPeerId() + " received the 'have' message from " + target.getPeerId() +
-//                        " for the piece " + index);
 //
-//                if (!exist)
-//                    sendMessage(new Message(Message.TYPE_INTERESTED, null));
+//                if (!exist && isUnchoke.get())
+//                    sendSeed(MsgPeerSeed.TYPE_REQUEST, null);
 //
 //                break;
 
             case Message.TYPE_UNCHOKE:
-                isUnchoke = true;
+                isUnchoke.set(true);
                 Log.println("Peer " + thisPeer.getPeerId() + " is unchoked by " + target.getPeerId());
-                sendRequest();
+                sendSeed(MsgPeerSeed.TYPE_REQUEST, null);
                 break;
 
             case Message.TYPE_CHOKE:
-                isUnchoke = false;
+                isUnchoke.set(false);
                 Log.println("Peer " + thisPeer.getPeerId() + " is choked by " + target.getPeerId());
                 break;
 
@@ -259,7 +259,7 @@ public class PeerThread implements Runnable
                 int piece = ByteBuffer.wrap(payload, 0, 4).getInt();
                 thisPeer.handleRcvNewPiece(piece, target.getPeerId(), payload, 4, payload.length - 4);
 
-                if (isUnchoke) sendRequest();
+                if (isUnchoke.get()) sendSeed(MsgPeerSeed.TYPE_REQUEST, null);
                 break;
 
             case Message.TYPE_INTERESTED:
@@ -327,22 +327,6 @@ public class PeerThread implements Runnable
     }
 
     /**
-     * Find missing piece and send REQUEST msg
-     */
-    private void sendRequest()
-    {
-        if (thisPeer.getHasFile()) return;
-
-        int pieceIdx = thisPeer.selectNewPieceFromNeighbor(target.getPeerId());
-        if (pieceIdx < 0)
-            return;
-
-        // form request msg
-        sendMessage(new Message(Message.TYPE_REQUEST, Misc.intToByteArray(pieceIdx)));
-        Log.println("Request " + pieceIdx + " from neighbor " + target.getPeerId());
-    }
-
-    /**
      * Translate payload to bitfield
      * @param payload payload (array of bytes)
      * @return bitfield
@@ -380,7 +364,7 @@ public class PeerThread implements Runnable
 
         if (cost > 0)
         {
-            downloadRate = buffer.length * 1.0 / cost;
+            downloadRate = buffer.length * 1000.0 / cost;
             //TODO: do we need this?
             estimateDownloadRate = estRate*thisPeer.getDownloadRate(target.getPeerId()) + (1-estRate)*downloadRate;
             Log.println("Rate of neighbor " + target.getPeerId() + " is: " + estimateDownloadRate + '\t' + cost);
@@ -392,6 +376,11 @@ public class PeerThread implements Runnable
     public PeerInfo getTarget()
     {
         return target;
+    }
+
+    boolean isUnchoke()
+    {
+        return isUnchoke.get();
     }
 
     public void start()
