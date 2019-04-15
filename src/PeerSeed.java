@@ -170,8 +170,8 @@ public class PeerSeed implements Runnable
     private void sendPiece(int pieceIdx) throws IOException
     {
         int numPiece = thisPeer.NUM_OF_PIECES;
-        int offset = (pieceIdx == numPiece - 1)? (int)(PeerProcess.FileSize - (numPiece - 1) * PeerProcess.PieceSize) : PeerProcess.PieceSize;
-        long filePtr = PeerProcess.PieceSize * pieceIdx;
+        int offset = (pieceIdx == numPiece - 1)? (int)(peerProcess.FileSize - (numPiece - 1) * peerProcess.PieceSize) : peerProcess.PieceSize;
+        long filePtr = peerProcess.PieceSize * pieceIdx;
 
         /* WARNING: flaws if offset is bigger than int */
         byte[] buffer = new byte[4 + offset];

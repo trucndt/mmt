@@ -51,7 +51,7 @@ public class Peer
         }
 
         /* Initialize bitfield */
-        NUM_OF_PIECES = (int)Math.ceil(PeerProcess.FileSize*1.0/ PeerProcess.PieceSize);
+        NUM_OF_PIECES = (int)Math.ceil(peerProcess.FileSize*1.0/ peerProcess.PieceSize);
         bitfield = new byte[NUM_OF_PIECES];
 
         if (hasFile.get())
@@ -97,7 +97,7 @@ public class Peer
         }
 
         // Set file path
-        FILE_PATH = "peer_" + peerId + "/" + PeerProcess.FileName;
+        FILE_PATH = "peer_" + peerId + "/" + peerProcess.FileName;
 
         writeFileThread = new WriteFileThread(FILE_PATH);
         requestTimedOutThread = new RequestTimedOutThread(this);
@@ -114,7 +114,8 @@ public class Peer
         // Make connection to other peer
         for (PeerInfo target : peerList)
         {
-            if (target.getPeerId() < peerId)
+            if (target.getPeerId() == peerId) break;
+            else
             {
                 Socket connectionSocket = makeConnection(target);
                 if (connectionSocket == null) continue;

@@ -69,7 +69,7 @@ public class WriteFileThread implements Runnable
                 if (p.pieceIdx == -1)
                     break;
 
-                file.seek(p.pieceIdx * PeerProcess.PieceSize);
+                file.seek(p.pieceIdx * peerProcess.PieceSize);
                 file.write(p.buffer, p.offset, p.length);
             }
         } catch (IOException | InterruptedException e)

@@ -4,4 +4,4 @@ $ make
 
 # To run
 $ cd src/
-$ java PeerProcess <peerID>
+$ java peerProcess <peerID>

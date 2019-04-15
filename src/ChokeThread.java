@@ -20,7 +20,7 @@ public class ChokeThread implements Runnable
         {
             try
             {
-                Thread.sleep(PeerProcess.UnchokingInterval * 1000);
+                Thread.sleep(peerProcess.UnchokingInterval * 1000);
 
                 // get data
                 ArrayList<Double> rate = new ArrayList<>(thisPeer.getPeerList().size() - 1);
@@ -44,7 +44,7 @@ public class ChokeThread implements Runnable
 
                 if (validId.size() == 0) continue;
 
-                int numOfNeighborsToSelect = Math.min(PeerProcess.NumOfPreferredNeighbors, validId.size());
+                int numOfNeighborsToSelect = Math.min(peerProcess.NumOfPreferredNeighbors, validId.size());
 
                 ArrayList<Integer> highestIdx;
                 if (!thisPeer.getHasFile())
@@ -226,7 +226,7 @@ class OptimisticChokeThread implements Runnable
         {
             try
             {
-                Thread.sleep(PeerProcess.OptimisticUnchokingInterval * 1000);
+                Thread.sleep(peerProcess.OptimisticUnchokingInterval * 1000);
 
                 int prevId = thisPeer.getOptimistUnchoke();
                 int neighborId = prevId;

@@ -9,7 +9,7 @@ import java.util.List;
 /**
  * Main class of the program
  */
-public class PeerProcess
+public class peerProcess
 {
     public static int NumOfPreferredNeighbors = 2;
     public static int UnchokingInterval = 5;
