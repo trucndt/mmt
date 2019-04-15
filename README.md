@@ -1,5 +1,7 @@
 # To compile
+$ cd src/
 $ make
 
 # To run
-$ java -cp build MMT <peerID>
+$ cd src/
+$ java PeerProcess <peerID>

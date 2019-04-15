@@ -51,7 +51,7 @@ public class Peer
         }
 
         /* Initialize bitfield */
-        NUM_OF_PIECES = (int)Math.ceil(MMT.FileSize*1.0/MMT.PieceSize);
+        NUM_OF_PIECES = (int)Math.ceil(PeerProcess.FileSize*1.0/ PeerProcess.PieceSize);
         bitfield = new byte[NUM_OF_PIECES];
 
         if (hasFile.get())
@@ -97,7 +97,7 @@ public class Peer
         }
 
         // Set file path
-        FILE_PATH = "peer_" + peerId + "/" + MMT.FileName;
+        FILE_PATH = "peer_" + peerId + "/" + PeerProcess.FileName;
 
         writeFileThread = new WriteFileThread(FILE_PATH);
         requestTimedOutThread = new RequestTimedOutThread(this);

@@ -1,7 +1,6 @@
 import java.io.*;
 import java.util.Arrays;
 import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 public class PeerSeed implements Runnable
 {
@@ -171,8 +170,8 @@ public class PeerSeed implements Runnable
     private void sendPiece(int pieceIdx) throws IOException
     {
         int numPiece = thisPeer.NUM_OF_PIECES;
-        int offset = (pieceIdx == numPiece - 1)? (int)(MMT.FileSize - (numPiece - 1) * MMT.PieceSize) : MMT.PieceSize;
-        long filePtr = MMT.PieceSize * pieceIdx;
+        int offset = (pieceIdx == numPiece - 1)? (int)(PeerProcess.FileSize - (numPiece - 1) * PeerProcess.PieceSize) : PeerProcess.PieceSize;
+        long filePtr = PeerProcess.PieceSize * pieceIdx;
 
         /* WARNING: flaws if offset is bigger than int */
         byte[] buffer = new byte[4 + offset];

@@ -3,7 +3,6 @@ import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 public class WriteFileThread implements Runnable
 {
@@ -70,7 +69,7 @@ public class WriteFileThread implements Runnable
                 if (p.pieceIdx == -1)
                     break;
 
-                file.seek(p.pieceIdx * MMT.PieceSize);
+                file.seek(p.pieceIdx * PeerProcess.PieceSize);
                 file.write(p.buffer, p.offset, p.length);
             }
         } catch (IOException | InterruptedException e)
