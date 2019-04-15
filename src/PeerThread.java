@@ -12,8 +12,6 @@ public class PeerThread implements Runnable
     private Socket socket;
     private boolean initiator;
 
-    private final AtomicBoolean isUnchoke;
-
     private final DataOutputStream toNeighbor;
     private final DataInputStream fromNeighbor;
 
@@ -34,7 +32,6 @@ public class PeerThread implements Runnable
         toSeed = new LinkedBlockingQueue<>();
 
         peerSeed = new PeerSeed(thisPeer, this, toSeed);
-        isUnchoke = new AtomicBoolean(false);
     }
 
     @Override
@@ -240,18 +237,7 @@ public class PeerThread implements Runnable
 //                if (!exist && isUnchoke.get())
 //                    sendSeed(MsgPeerSeed.TYPE_REQUEST, null);
 //
-//                break;
-
-            case Message.TYPE_UNCHOKE:
-                isUnchoke.set(true);
-                Log.println("Peer " + thisPeer.getPeerId() + " is unchoked by " + target.getPeerId());
-                sendSeed(MsgPeerSeed.TYPE_REQUEST, null);
-                break;
-
-            case Message.TYPE_CHOKE:
-                isUnchoke.set(false);
-                Log.println("Peer " + thisPeer.getPeerId() + " is choked by " + target.getPeerId());
-                break;
+//                break
 
             case Message.TYPE_PIECE:
                 // Write to file
@@ -259,7 +245,7 @@ public class PeerThread implements Runnable
                 int piece = ByteBuffer.wrap(payload, 0, 4).getInt();
                 thisPeer.handleRcvNewPiece(piece, target.getPeerId(), payload, 4, payload.length - 4);
 
-                if (isUnchoke.get()) sendSeed(MsgPeerSeed.TYPE_REQUEST, null);
+                sendSeed(MsgPeerSeed.TYPE_REQUEST, null);
                 break;
 
             case Message.TYPE_INTERESTED:
@@ -376,11 +362,6 @@ public class PeerThread implements Runnable
     public PeerInfo getTarget()
     {
         return target;
-    }
-
-    boolean isUnchoke()
-    {
-        return isUnchoke.get();
     }
 
     public void start()

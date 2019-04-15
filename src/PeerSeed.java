@@ -11,7 +11,8 @@ public class PeerSeed implements Runnable
     private final BlockingQueue<MsgPeerSeed> toSeed;
 
     private final Thread thread;
-    boolean requesting;
+    private boolean requesting = false;
+    private boolean isUnchoke = false;
 
     /**
      * Keep a local bitfield and update whenever it has to send the HAVE message.
@@ -75,7 +76,7 @@ public class PeerSeed implements Runnable
                         break;
 
                     case MsgPeerSeed.TYPE_TIMEOUT:
-                        if (!requesting)
+                        if (!requesting && isUnchoke)
                             sendRequest();
                         break;
 
@@ -165,10 +166,21 @@ public class PeerSeed implements Runnable
                 if (!exist)
                 {
                     peerThread.sendMessage(new Message(Message.TYPE_INTERESTED, null));
-                    if (!requesting)
+                    if (!requesting && isUnchoke)
                         sendRequest();
                 }
 
+                break;
+
+            case Message.TYPE_UNCHOKE:
+                isUnchoke = true;
+                Log.println("Peer " + thisPeer.getPeerId() + " is unchoked by " + peerThread.getTarget().getPeerId());
+                sendRequest();
+                break;
+
+            case Message.TYPE_CHOKE:
+                isUnchoke = false;
+                Log.println("Peer " + thisPeer.getPeerId() + " is choked by " + peerThread.getTarget().getPeerId());
                 break;
 
             default:
@@ -204,7 +216,7 @@ public class PeerSeed implements Runnable
     private void sendRequest()
     {
         requesting = false;
-        if (thisPeer.getHasFile() || !peerThread.isUnchoke())
+        if (thisPeer.getHasFile() || !isUnchoke)
         {
             return;
         }
