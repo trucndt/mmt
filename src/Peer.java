@@ -1,5 +1,6 @@
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.RandomAccessFile;
 import java.net.ConnectException;
 import java.net.Socket;
 import java.net.UnknownHostException;
@@ -28,7 +29,7 @@ public class Peer
 
     private final Map<Integer, Double> downloadRate;
 
-    private final WriteFileThread writeFileThread;
+    private final RandomAccessFile file;
     private final RequestTimedOutThread requestTimedOutThread;
 
     public final String FILE_PATH;
@@ -99,7 +100,7 @@ public class Peer
         // Set file path
         FILE_PATH = "peer_" + peerId + "/" + peerProcess.FileName;
 
-        writeFileThread = new WriteFileThread(FILE_PATH);
+        file = new RandomAccessFile(FILE_PATH, "rw");
         requestTimedOutThread = new RequestTimedOutThread(this);
     }
 
@@ -108,7 +109,6 @@ public class Peer
         ServerListener serverListener = new ServerListener(serverPort, this);
         new Thread(serverListener).start();
 
-        writeFileThread.start(); // start WriteFileThread
         requestTimedOutThread.start(); // start RequestTimedOutThread
 
         // Make connection to other peer
@@ -148,7 +148,8 @@ public class Peer
         peerThreads.clear();
         lock_PeerThreads.writeLock().unlock();
         requestTimedOutThread.exit();
-        writeFileThread.exit();
+
+        file.close();
     }
 
     /**
@@ -352,8 +353,27 @@ public class Peer
                     + neighborId + ". Now the number of pieces it has is " + Misc.countPieces(bitfield));
         }
 
-        writeFileThread.writeFile(idx, buffer, offset, length);
+        writeFile(idx, buffer, offset, length);
         notifyNewPiece(idx);
+    }
+
+    private void writeFile(int pieceIdx, byte[] buffer, int offset, int length)
+    {
+        try
+        {
+            file.seek(pieceIdx * peerProcess.PieceSize);
+            file.write(buffer, offset, length);
+        }
+        catch (IOException e)
+        {
+            try
+            {
+                file.close();
+            } catch (IOException ex)
+            {
+                ex.printStackTrace();
+            }
+        }
     }
 
     /**

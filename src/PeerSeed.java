@@ -115,7 +115,7 @@ public class PeerSeed implements Runnable
         localBitfield[idx] = 1;
         /* send message */
         byte[] payload = Misc.intToByteArray(idx);
-        System.out.println("Sending HAVE " + idx + " to " + peerThread.getTarget().getPeerId());
+        Log.println("Sending HAVE " + idx + " to " + peerThread.getTarget().getPeerId());
         peerThread.sendMessage(new Message(Message.TYPE_HAVE, payload));
     }
 
