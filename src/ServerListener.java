@@ -21,7 +21,7 @@ public class ServerListener implements Runnable
     {
         try
         {
-            System.out.println(serverPort);
+//            System.out.println(serverPort);
             System.out.println("Waiting for clients at " + serverPort);
 
             while (true)

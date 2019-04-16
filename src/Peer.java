@@ -203,7 +203,7 @@ public class Peer
      */
     public void setOptimistUnchoke(int peerId)
     {
-        System.out.println("Optimistic unchoke " + peerId);
+//        System.out.println("Optimistic unchoke " + peerId);
         Log.println("Peer " + this.peerId + " has the optimistically unchoked neighbor " + peerId);
 
         // Choke the previous one if it is not preferred
@@ -544,12 +544,12 @@ public class Peer
     {
         try
         {
-            System.out.println("Get: Make connection to " + target.getPeerId());
+//            System.out.println("Get: Make connection to " + target.getPeerId());
             Log.println("Peer " + peerId + " makes a connection to Peer " + target.getPeerId());
 
             // make connection to target
             Socket socket = new Socket(target.getHostname(), target.getPort());
-            System.out.println("Get: Connected to " + target.getPeerId() + " in port " + target.getPort());
+//            System.out.println("Get: Connected to " + target.getPeerId() + " in port " + target.getPort());
 
             return socket;
         }

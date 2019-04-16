@@ -147,7 +147,7 @@ public class PeerThread implements Runnable
 
             toNeighbor.write(messageOut.getBytes());
             toNeighbor.flush();
-            System.out.println("Get: Send Handshake Message: { " + messageOut + " } to Client " + target.getPeerId());
+//            System.out.println("Get: Send Handshake Message: { " + messageOut + " } to Client " + target.getPeerId());
         }
         catch (IOException ioException)
         {
@@ -166,12 +166,12 @@ public class PeerThread implements Runnable
         fromNeighbor.readFully(buffer);
 
         String rcvMsg = new String(buffer);
-        System.out.println("Get: Receive msg " + rcvMsg);
+//        System.out.println("Get: Receive msg " + rcvMsg);
 
         /* check handshake message */
         if (!rcvMsg.substring(0, 18).equals("P2PFILESHARINGPROJ"))
         {
-            System.out.println("Get: Wrong handshake");
+//            System.out.println("Get: Wrong handshake");
             return -1;
         }
 
@@ -189,14 +189,14 @@ public class PeerThread implements Runnable
         fromNeighbor.readFully(buffer);
 
         String rcvMsg = new String(buffer);
-        System.out.println("Get: Receive msg " + rcvMsg);
+//        System.out.println("Get: Receive msg " + rcvMsg);
 
         int peerId = Integer.parseInt(rcvMsg.substring(28,32));
 
         /* check handshake message */
         if (!rcvMsg.substring(0, 18).equals("P2PFILESHARINGPROJ") || peerId != target.getPeerId())
         {
-            System.out.println("Get: Wrong handshake");
+//            System.out.println("Get: Wrong handshake");
             return -1;
         }
 
@@ -209,7 +209,7 @@ public class PeerThread implements Runnable
      */
     private void processReceivedMessage(Message rcvMsg)
     {
-        System.out.println("Get: Receive msg of type " + rcvMsg.getType() + " from " + target.getPeerId());
+//        System.out.println("Get: Receive msg of type " + rcvMsg.getType() + " from " + target.getPeerId());
         switch (rcvMsg.getType())
         {
             case Message.TYPE_BITFIELD:
@@ -279,7 +279,7 @@ public class PeerThread implements Runnable
         else
             length = 1 + msg.getPayload().length;
 
-        System.out.println("Sending message of type " + msg.getType() + " with length " + length + " to " + target.getPeerId());
+//        System.out.println("Sending message of type " + msg.getType() + " with length " + length + " to " + target.getPeerId());
 
         synchronized (toNeighbor)
         {

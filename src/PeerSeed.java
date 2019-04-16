@@ -150,7 +150,7 @@ public class PeerSeed implements Runnable
                         && thisPeer.getOptimistUnchoke() != peerThread.getTarget().getPeerId()) return;
 
                 int pieceIdx = Misc.byteArrayToInt(rcvMsg.getPayload());
-                System.out.println("Seed: Piece requested: " + pieceIdx);
+//                System.out.println("Seed: Piece requested: " + pieceIdx);
                 sendPiece(pieceIdx);
                 break;
 
@@ -184,7 +184,7 @@ public class PeerSeed implements Runnable
                 break;
 
             default:
-                System.out.println("PeerSeed receives invalid message");
+//                System.out.println("PeerSeed receives invalid message");
         }
     }
 
