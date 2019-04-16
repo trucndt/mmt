@@ -23,3 +23,7 @@ $ java StartRemotePeers <username> <working_dir>
 ```
 - username: username for ssh
 - working_dir: path to **src/** on the remote machines
+
+# Directory structure:
+- **src/**: source code
+- **doc/**: documentation
