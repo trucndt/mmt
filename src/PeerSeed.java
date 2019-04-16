@@ -115,7 +115,7 @@ public class PeerSeed implements Runnable
         localBitfield[idx] = 1;
         /* send message */
         byte[] payload = Misc.intToByteArray(idx);
-        Log.println("Sending HAVE " + idx + " to " + peerThread.getTarget().getPeerId());
+//        Log.println("Sending HAVE " + idx + " to " + peerThread.getTarget().getPeerId());
         peerThread.sendMessage(new Message(Message.TYPE_HAVE, payload));
     }
 
@@ -229,7 +229,7 @@ public class PeerSeed implements Runnable
 
         // form request msg
         peerThread.sendMessage(new Message(Message.TYPE_REQUEST, Misc.intToByteArray(pieceIdx)));
-        Log.println("Request " + pieceIdx + " from neighbor " + peerThread.getTarget().getPeerId());
+//        Log.println("Request " + pieceIdx + " from neighbor " + peerThread.getTarget().getPeerId());
         requesting = true;
     }
 

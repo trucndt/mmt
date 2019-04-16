@@ -324,7 +324,7 @@ public class Peer
             {
                 bitfield[idx] = 0;
                 notify = true;
-                Log.println("Request timed out: " + idx);
+//                Log.println("Request timed out: " + idx);
             }
         }
 

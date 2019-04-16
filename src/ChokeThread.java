@@ -78,7 +78,7 @@ public class ChokeThread implements Runnable
                     thisPeer.setPreferredNeighbor(validId.get(i), isPreferred[i]);
                     if (isPreferred[i])
                         logPreferred.append(", ").append(validId.get(i));
-                    Log.println("Neighbor " + validId.get(i) + " is preferred: " + isPreferred[i]);
+//                    Log.println("Neighbor " + validId.get(i) + " is preferred: " + isPreferred[i]);
                 }
 
                 Log.println("Peer "+ thisPeer.getPeerId() + " has the preferred neighbors " + logPreferred.substring(2));

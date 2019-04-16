@@ -353,7 +353,7 @@ public class PeerThread implements Runnable
             downloadRate = buffer.length * 1000.0 / cost;
             //TODO: do we need this?
             estimateDownloadRate = estRate*thisPeer.getDownloadRate(target.getPeerId()) + (1-estRate)*downloadRate;
-            Log.println("Rate of neighbor " + target.getPeerId() + " is: " + estimateDownloadRate + '\t' + cost);
+//            Log.println("Rate of neighbor " + target.getPeerId() + " is: " + estimateDownloadRate + '\t' + cost);
         }
 
         return estimateDownloadRate;
