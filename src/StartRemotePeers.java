@@ -83,7 +83,7 @@ public class StartRemotePeers
                 RemotePeerInfo pInfo = myStart.peerInfoVector.elementAt(i);
 
                 System.out.println("Start remote peer " + pInfo.peerId + " at " + pInfo.peerAddress);
-
+                Thread.sleep(100);
                 Runtime.getRuntime().exec("ssh " + user + "@" + pInfo.peerAddress + " cd " + path +
                         "&& make && java peerProcess " + pInfo.peerId);
             }

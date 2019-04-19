@@ -357,7 +357,7 @@ public class Peer
         notifyNewPiece(idx);
     }
 
-    private void writeFile(int pieceIdx, byte[] buffer, int offset, int length)
+    private synchronized void writeFile(int pieceIdx, byte[] buffer, int offset, int length)
     {
         try
         {
